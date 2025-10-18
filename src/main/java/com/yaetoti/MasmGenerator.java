@@ -8,12 +8,12 @@ public class MasmGenerator {
 
   // Maps variable names to their types and stack offsets
   private static class SymbolTable {
-    private final Map<String, TACI.Type> types = new HashMap<>();
+    private final Map<String, ITAC.Type> types = new HashMap<>();
     private final Map<String, Integer> offsets = new HashMap<>();
     private int currentOffset = 0;
 
     // Allocate space on the stack for a new variable
-    public int addVariable(String name, TACI.Type type) {
+    public int addVariable(String name, ITAC.Type type) {
       types.put(name, type);
       // Align stack to the size of the type, minimum 4 bytes
       int allocationSize = Math.max(4, type.size());
@@ -22,7 +22,7 @@ public class MasmGenerator {
       return currentOffset;
     }
 
-    public TACI.Type getType(String name) {
+    public ITAC.Type getType(String name) {
       return Objects.requireNonNull(types.get(name), "Variable not defined: " + name);
     }
 
@@ -37,8 +37,15 @@ public class MasmGenerator {
 
   private final SymbolTable symbolTable = new SymbolTable();
   private final StringBuilder code = new StringBuilder();
+  // Add a counter for generating unique labels
+  private int labelCounter = 0;
 
-  public String generate(TACI.Program program) {
+  // A public helper for the frontend to create unique labels
+  public String newLabel() {
+    return "L" + (labelCounter++);
+  }
+
+  public String generate(ITAC.Program program) {
     // First pass: build the symbol table to know all variables and required stack space
     buildSymbolTable(program);
 
@@ -53,7 +60,7 @@ public class MasmGenerator {
     append("    sub     rsp, %d", symbolTable.getTotalAllocationSize());
 
     // Second pass: generate code for each instruction
-    for (TACI.Instruction instruction : program.instructions()) {
+    for (ITAC.Instruction instruction : program.instructions()) {
       translateInstruction(instruction);
     }
 
@@ -68,40 +75,95 @@ public class MasmGenerator {
     return code.toString();
   }
 
-  private void buildSymbolTable(TACI.Program program) {
-    for (TACI.Instruction instruction : program.instructions()) {
-      if (instruction instanceof TACI.Assignment(var result, _)) {
-        TACI.Type type = determineType(result, instruction);
+  private void buildSymbolTable(ITAC.Program program) {
+    for (ITAC.Instruction instruction : program.instructions()) {
+      if (instruction instanceof ITAC.Assignment(var result, _)) {
+        ITAC.Type type = determineType(result, instruction);
         symbolTable.addVariable(result.name(), type);
-      } else if (instruction instanceof TACI.BinaryOperation(var result, _, _, _)) {
-        TACI.Type type = determineType(result, instruction);
+      } else if (instruction instanceof ITAC.BinaryOperation(var result, _, _, _)) {
+        ITAC.Type type = determineType(result, instruction);
         symbolTable.addVariable(result.name(), type);
       }
     }
   }
 
-  private void translateInstruction(TACI.Instruction instruction) {
-    append("\n    ; TAC: %s", instruction.toString().replaceAll("TACI\\$[A-Za-z]+", ""));
-    if (instruction instanceof TACI.Assignment a) {
+  private void translateInstruction(ITAC.Instruction instruction) {
+// Add a small helper to not print "TACI$..." for cleaner comments
+    String instructionString = instruction.toString()
+      .replaceAll("TACI\\$[A-Za-z]+", "")
+      .replaceAll("records\\.", "");
+
+    append("\n    ; TAC: %s", instructionString);
+
+    // UPDATED with new cases
+    if (instruction instanceof ITAC.Assignment a) {
       translateAssignment(a);
-    } else if (instruction instanceof TACI.BinaryOperation b) {
+    } else if (instruction instanceof ITAC.BinaryOperation b) {
       translateBinaryOperation(b);
+    } else if (instruction instanceof ITAC.Label(String name)) {
+      append("%s:", name);
+    } else if (instruction instanceof ITAC.Jump(String targetLabel)) {
+      append("    jmp     %s", targetLabel);
+    } else if (instruction instanceof ITAC.ConditionalJump cj) {
+      translateConditionalJump(cj);
     }
   }
 
-  private void translateAssignment(TACI.Assignment assignment) {
-    TACI.Type resultType = symbolTable.getType(assignment.result().name());
-    String resultAddr = getMemoryAddress(assignment.result().name());
+  private void translateConditionalJump(ITAC.ConditionalJump cj) {
+    // Assume comparison is between same-sized types for simplicity
+    ITAC.Type opType = determineOperandType(cj.arg1());
 
-    loadOperandIntoRegister("rax", assignment.source(), resultType);
+    // 1. Load operands into registers
+    loadOperandIntoRegister("rax", cj.arg1(), opType);
+    loadOperandIntoRegister("rcx", cj.arg2(), opType);
 
-    String resultReg = getRegister("rax", resultType.size());
-    append("    mov     %s, %s", resultAddr, resultReg);
+    String regA = getRegister("rax", opType.size());
+    String regC = getRegister("rcx", opType.size());
+
+    // 2. Compare the two registers
+    append("    cmp     %s, %s", regA, regC);
+
+    // 3. Select the correct jump instruction based on the operator
+    String jumpInstruction = switch (cj.op()) {
+      case EQ -> "je";  // Jump if Equal
+      case NE -> "jne"; // Jump if Not Equal
+      // For signed vs unsigned, JL/JG vs JB/JA would be needed.
+      // We'll assume signed for this example (J L/G/LE/GE).
+      case LT -> "jl";  // Jump if Less
+      case LE -> "jle"; // Jump if Less or Equal
+      case GT -> "jg";  // Jump if Greater
+      case GE -> "jge"; // Jump if Greater or Equal
+    };
+
+    // 4. Emit the jump
+    append("    %s     %s", jumpInstruction, cj.targetLabel());
   }
 
-  private void translateBinaryOperation(TACI.BinaryOperation op) {
-    TACI.Type resultType = symbolTable.getType(op.result().name());
-    String resultAddr = getMemoryAddress(op.result().name());
+  // Helper to find an operand's type, needed for ConditionalJump
+  private ITAC.Type determineOperandType(ITAC.Operand operand) {
+    if (operand instanceof ITAC.Constant c) {
+      return c.type();
+    } else if (operand instanceof ITAC.Variable v) {
+      return symbolTable.getType(v.name());
+    }
+    throw new IllegalArgumentException("Unknown operand type");
+  }
+
+  private void translateAssignment(ITAC.Assignment assignment) {
+    ITAC.Type resultType = symbolTable.getType(assignment.result().name());
+
+    // From anywhere to RAX
+    loadOperandIntoRegister("rax", assignment.source(), resultType);
+
+    // From RAX to memory
+    String sourceAddr = getRegister("rax", resultType.size());
+    String resultAddr = getDereferenceCode(assignment.result().name());
+    append("    mov     %s, %s", resultAddr, sourceAddr);
+  }
+
+  private void translateBinaryOperation(ITAC.BinaryOperation op) {
+    ITAC.Type resultType = symbolTable.getType(op.result().name());
+    String resultAddr = getDereferenceCode(op.result().name());
 
     // 1. Load arg1 into RAX
     loadOperandIntoRegister("rax", op.arg1(), resultType);
@@ -142,7 +204,7 @@ public class MasmGenerator {
         append("    div     %s", regC);
       }
 
-      if (op.op() == TACI.Op.MOD) {
+      if (op.op() == ITAC.Op.MOD) {
         // Remainder is in RDX, move it to RAX for storing
         String regD = getRegister("rdx", resultType.size());
         append("    mov     %s, %s", regA, regD);
@@ -155,12 +217,14 @@ public class MasmGenerator {
   }
 
   // Helper to load any operand (variable or constant) into a register, handling type promotion
-  private void loadOperandIntoRegister(String reg, TACI.Operand operand, TACI.Type targetType) {
-    if (operand instanceof TACI.Constant c) {
+  private void loadOperandIntoRegister(String reg, ITAC.Operand operand, ITAC.Type targetType) {
+    if (operand instanceof ITAC.Constant c) {
+      // Load constant
       append("    mov     %s, %s", getRegister(reg, targetType.size()), c.value());
-    } else if (operand instanceof TACI.Variable v) {
-      TACI.Type sourceType = symbolTable.getType(v.name());
-      String sourceAddr = getMemoryAddress(v.name());
+    } else if (operand instanceof ITAC.Variable v) {
+      // Promotion
+      ITAC.Type sourceType = symbolTable.getType(v.name());
+      String sourceAddr = getDereferenceCode(v.name());
 
       // Handle type promotion (e.g., s32 to s64)
       if (targetType.size() > sourceType.size()) {
@@ -184,23 +248,23 @@ public class MasmGenerator {
   }
 
   // Helper Methods
-  private TACI.Type determineType(TACI.Variable var, TACI.Instruction ctx) {
+  private ITAC.Type determineType(ITAC.Variable var, ITAC.Instruction ctx) {
     // A real compiler would have a more robust type inference system.
     // Here, we infer the type from the context of the operation.
-    if (ctx instanceof TACI.Assignment(_, var source)) {
-      if (source instanceof TACI.Constant c) return c.type();
-      if (source instanceof TACI.Variable v) return symbolTable.getType(v.name());
-    } else if (ctx instanceof TACI.BinaryOperation(_, var arg1, _, var arg2)) {
-      TACI.Type t1 = (arg1 instanceof TACI.Constant c) ? c.type() : symbolTable.getType(((TACI.Variable)arg1).name());
-      TACI.Type t2 = (arg2 instanceof TACI.Constant c) ? c.type() : symbolTable.getType(((TACI.Variable)arg2).name());
+    if (ctx instanceof ITAC.Assignment(_, var source)) {
+      if (source instanceof ITAC.Constant c) return c.type();
+      if (source instanceof ITAC.Variable v) return symbolTable.getType(v.name());
+    } else if (ctx instanceof ITAC.BinaryOperation(_, var arg1, _, var arg2)) {
+      ITAC.Type t1 = (arg1 instanceof ITAC.Constant c) ? c.type() : symbolTable.getType(((ITAC.Variable)arg1).name());
+      ITAC.Type t2 = (arg2 instanceof ITAC.Constant c) ? c.type() : symbolTable.getType(((ITAC.Variable)arg2).name());
       // Promote to the larger type
       return t1.size() >= t2.size() ? t1 : t2;
     }
     throw new IllegalStateException("Cannot determine type for " + var.name());
   }
 
-  private String getMemoryAddress(String varName) {
-    TACI.Type type = symbolTable.getType(varName);
+  private String getDereferenceCode(String varName) {
+    ITAC.Type type = symbolTable.getType(varName);
     String sizeDirective = switch (type.size()) {
       case 8 -> "qword ptr";
       case 4 -> "dword ptr";
