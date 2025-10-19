@@ -45,32 +45,88 @@ class LabelGenerator {
 class Program {
   record FunctionEntry(String name, FunctionFrame frame) {}
 
-  private final List<FunctionEntry> m_frames;
+  private final List<FunctionFrame> m_frames;
+  // TODO extern declarations
+  //private final List<FunctionDeclaration> m_declarations;
 
-  public Program(List<FunctionEntry> frames) {
+  public Program(List<FunctionFrame> frames) {
     m_frames = frames;
   }
 
-  public List<FunctionEntry> GetFunctions() {
+//  public List<FunctionDeclaration> GetDeclarations() {
+//    return m_declarations;
+//  }
+
+  public List<FunctionFrame> GetFunctions() {
     return m_frames;
   }
 }
 
 class FunctionFrame {
+  private final FunctionDeclaration m_declaration;
   private final List<ITAC.Instruction> m_instructions;
 
-  public FunctionFrame(List<ITAC.Instruction> instructions) {
+  public FunctionFrame(FunctionDeclaration declaration, List<ITAC.Instruction> instructions) {
+    m_declaration = declaration;
     m_instructions = instructions;
   }
 
   public List<ITAC.Instruction> GetInstructions() {
     return m_instructions;
   }
+
+  public FunctionDeclaration GetDeclaration() {
+    return m_declaration;
+  }
 }
 
 class Scope {
 
 }
+
+
+record Parameter(String name, ITAC.Type type) {}
+record FunctionDeclaration(String name, Parameter[] parameters, ITAC.Type[] returnTypes) {}
+
+// Set parameters
+// +Get parameters
+// +Set return value
+// Get return value
+
+// TODO add instruction call
+// TODO add instruction multiple assignment
+// For that we need to store all elements that are in stack into values. Or leave it as is, but append offsets. It is if we won't use stack for other purposes
+
+// TODO handle function call (stackcall)
+// TODO pass parameters
+// TODO clean stack after call
+// TODO multiple assignment
+
+// We get call("name", "a, b") - name, parameters' name
+// We get declaration for name: FuncDecl("hash", "u64 a, u64 b", "u8")
+// IF "stackcall" convention
+// Push parameters to stack one by one
+// Add call "name"
+
+// +Inside function (from the beginning)
+// We get our function declaration by name: FuncDecl("hash", "u64 a, u64 b", "u8")
+// We get our parameters (If reference - we can modify it. If can modify - need to copy. How to add offset to stack manager?)
+// IF "stackcall"
+// Add variables with parameter names, copy from these cells one by one
+
+// Assignment:
+// We get call() ... how do we assign call result to variables? We need to also save variables into call
+
+
+// Stack parameters:
+// param3
+// param2
+// param2
+// return value
+// rbp
+// locals
+
+// TODO problem. We can't write eax to stack, because there may be trash. Either clean it either
 
 public class Main {
   // Define type constants for convenience
@@ -92,33 +148,50 @@ public class Main {
 
     MasmGenerator generator = new MasmGenerator();
 
+    // Create variables
     var a = new ITAC.Variable("a");
     var b = new ITAC.Variable("b");
+    var number2 = new ITAC.Variable("number2");
 
+    // Create labels TODO separate labels for different functions
     LabelGenerator mainGen = new LabelGenerator();
     String elseLabel = mainGen.GenLabel();
     String endIfLabel = mainGen.GenLabel();
 
-    var hashFrame = new FunctionFrame(List.of(
-      new ITAC.Return(new ITAC.Constant("0", i64))
-    ));
+    // Create frames
+    var hashFrame = new FunctionFrame(
+      new FunctionDeclaration("hash", new Parameter[] {
+        new Parameter("number1", i64),
+        new Parameter("number2", i64)
+      }, new ITAC.Type[] { i64 }),
+      List.of(
+        new ITAC.Assignment(a, new ITAC.Constant("5", i32)),
+        //new ITAC.Return(new ITAC.Constant("0", i64))
+        new ITAC.Return(number2)
+      )
+    );
 
-    var mainFrame = new FunctionFrame(List.of(
-      new ITAC.Assignment(a, new ITAC.Constant("5", i32)),
-      new ITAC.ConditionalJump(a, ITAC.ComparisonOp.LE, new ITAC.Constant("10", i32), elseLabel),
-      new ITAC.Assignment(b, new ITAC.Constant("100", i32)),
-      new ITAC.Jump(endIfLabel),
-      new ITAC.Label(elseLabel),
-      new ITAC.Assignment(b, new ITAC.Constant("200", i32)),
-      new ITAC.Label(endIfLabel),
-      new ITAC.Return(new ITAC.Constant("0", i64), new ITAC.Constant("200", i64), b)
-    ));
+    var mainFrame = new FunctionFrame(
+      new FunctionDeclaration("main", new Parameter[] {}, new ITAC.Type[] {}),
+      List.of(
+        new ITAC.Assignment(a, new ITAC.Constant("5", i32)),
+        new ITAC.ConditionalJump(a, ITAC.ComparisonOp.LE, new ITAC.Constant("10", i32), elseLabel),
+        new ITAC.Assignment(b, new ITAC.Constant("100", i32)),
+        new ITAC.Jump(endIfLabel),
+        new ITAC.Label(elseLabel),
+        new ITAC.Assignment(b, new ITAC.Constant("200", i32)),
+        new ITAC.Label(endIfLabel),
+        new ITAC.Return(new ITAC.Constant("0", i64), new ITAC.Constant("200", i64), b)
+      )
+    );
 
+    // Create program
     var program = new Program(List.of(
-      new Program.FunctionEntry("hash", hashFrame),
-      new Program.FunctionEntry("main", mainFrame)
+      hashFrame,
+      mainFrame
     ));
 
+    // Generate code
     String masmCode = generator.Generate(program);
     System.out.println(masmCode);
 

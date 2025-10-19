@@ -22,10 +22,15 @@ public class MasmGenerator {
     public int addVariable(String name, ITAC.Type type) {
       types.put(name, type);
       // Align stack to the size of the type, minimum 4 bytes
-      int allocationSize = Math.max(4, type.size());
+      int allocationSize = Math.max(8, type.size());
       currentOffset += allocationSize;
       offsets.put(name, currentOffset);
       return currentOffset;
+    }
+
+    public void AddSeparateVariable(String name, ITAC.Type type, int offset) {
+      types.put(name, type);
+      offsets.put(name, offset);
     }
 
     public ITAC.Type getType(String name) {
@@ -70,7 +75,13 @@ public class MasmGenerator {
       case 1 -> "byte ptr";
       default -> "";
     };
-    return String.format("%s [rbp - %d]", sizeDirective, symbolTable.getOffset(variableName));
+
+    int offset = symbolTable.getOffset(variableName);
+    if (offset < 0) {
+      return String.format("%s [rbp + %d]", sizeDirective, -offset);
+    }
+
+    return String.format("%s [rbp - %d]", sizeDirective, offset);
   }
 
   private String GetDereferenceCode(String variableName, int size) {
@@ -81,7 +92,13 @@ public class MasmGenerator {
       case 1 -> "byte ptr";
       default -> "";
     };
-    return String.format("%s [rbp - %d]", sizeDirective, symbolTable.getOffset(variableName));
+
+    int offset = symbolTable.getOffset(variableName);
+    if (offset < 0) {
+      return String.format("%s [rbp + %d]", sizeDirective, -offset);
+    }
+
+    return String.format("%s [rbp - %d]", sizeDirective, offset);
   }
 
   public String Generate(Program program) {
@@ -97,22 +114,33 @@ public class MasmGenerator {
       labelCounter = 0;
 
       // - Generate PROC
-      Append(function.name() + " proc");
+      Append(function.GetDeclaration().name() + " proc");
 
-      // - Generate prologue
+      // - Generate frame
       Append("    push    rbp");
       Append("    mov     rbp, rsp");
+
+      // - Spilt register parameters into stack, if appropriate. Add variables to the symbol table
+      int paramId = 0;
+      for (var parameter : function.GetDeclaration().parameters()) {
+        // -8 return
+        // -16 param1
+        symbolTable.AddSeparateVariable(parameter.name(), parameter.type(), -16 - paramId * 8);
+        ++paramId;
+      }
+
+      // - Allocate stack memory
+      buildSymbolTable(function.GetInstructions());
       Append("    sub     rsp, %d", symbolTable.getTotalAllocationSize());
 
       // - Generate code
-      buildSymbolTable(function.frame().GetInstructions());
 
-      for (ITAC.Instruction instruction : function.frame().GetInstructions()) {
+      for (ITAC.Instruction instruction : function.GetInstructions()) {
         translateInstruction(instruction);
       }
 
       // - Generate ENDP
-      Append(function.name() + " endp");
+      Append(function.GetDeclaration().name() + " endp");
     }
 
     // Generate end
