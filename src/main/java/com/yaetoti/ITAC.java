@@ -14,7 +14,7 @@ public interface ITAC {
   record Constant(String value, Type type) implements Operand {}
 
   // Represents a single TAC instruction
-  sealed interface Instruction permits Assignment, BinaryOperation, Label, Jump, ConditionalJump {}
+  sealed interface Instruction permits Assignment, BinaryOperation, Label, Jump, ConditionalJump, Return {}
   // Represents 'result = source'
   record Assignment(Variable result, Operand source) implements Instruction {}
   // Represents 'result = arg1 op arg2'
@@ -23,6 +23,9 @@ public interface ITAC {
   record Label(String name) implements Instruction {}
   record Jump(String targetLabel) implements Instruction {}
   record ConditionalJump(Operand arg1, ComparisonOp op, Operand arg2, String targetLabel) implements Instruction {}
+  // Even worse, my instructions o:
+  record Return(Operand... operands) implements Instruction {}
+
 
   // Enum for the arithmetic operations
   enum Op {

@@ -8,37 +8,29 @@ import java.util.Objects;
 // Questions
 // Is
 
+class Program {
+  private final List<FunctionFrame> m_frames;
+
+  public Program(List<FunctionFrame> frames) {
+    m_frames = frames;
+  }
+}
+
 class FunctionFrame {
-  private final List<ITAC.Instruction> instructions;
-  private final Map<String, ITAC.Type> types = new HashMap<>();
-  private final Map<String, Integer> offsets = new HashMap<>();
-  private int currentOffset = 0;
+  private final List<ITAC.Instruction> m_instructions;
+  private int nextLabelIndex = 0;
 
   public FunctionFrame(List<ITAC.Instruction> instructions) {
-    this.instructions = instructions;
+    m_instructions = instructions;
   }
 
-  // Allocate space on the stack for a new variable
-  public int AddVariable(String name, ITAC.Type type) {
-    types.put(name, type);
-    // Align stack to the size of the type, minimum 4 bytes
-    int allocationSize = Math.max(4, type.size());
-    currentOffset += allocationSize;
-    offsets.put(name, currentOffset);
-    return currentOffset;
+  public String GenLabelIndex() {
+    return "L" + nextLabelIndex++;
   }
+}
 
-  public ITAC.Type GetType(String name) {
-    return Objects.requireNonNull(types.get(name), "Variable not defined: " + name);
-  }
+class Scope {
 
-  public int GetOffset(String name) {
-    return Objects.requireNonNull(offsets.get(name), "Variable not defined: " + name);
-  }
-
-  public int getTotalAllocationSize() {
-    return currentOffset;
-  }
 }
 
 public class Main {
@@ -85,7 +77,10 @@ public class Main {
       new ITAC.Assignment(b, new ITAC.Constant("200", i32)),
 
       // End of IF
-      new ITAC.Label(endIfLabel)
+      new ITAC.Label(endIfLabel),
+
+      // Return
+      new ITAC.Return(new ITAC.Constant("0", i64), new ITAC.Constant("200", i64), b)
     ));
 
     String masmCode = generator.generate(program);

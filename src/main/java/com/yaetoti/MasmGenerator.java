@@ -65,10 +65,10 @@ public class MasmGenerator {
     }
 
     // Function Epilog: Restore stack and return
-    append("    add     rsp, %d", symbolTable.getTotalAllocationSize());
-    append("    pop     rbp");
-    append("    mov     rax, 0  ; Return 0");
-    append("    ret");
+//    append("    add     rsp, %d", symbolTable.getTotalAllocationSize());
+//    append("    pop     rbp");
+//    append("    mov     rax, 0  ; Return 0");
+//    append("    ret");
     append("main ENDP");
     append("END");
 
@@ -106,7 +106,46 @@ public class MasmGenerator {
       append("    jmp     %s", targetLabel);
     } else if (instruction instanceof ITAC.ConditionalJump cj) {
       translateConditionalJump(cj);
+    } else if (instruction instanceof ITAC.Return ret) {
+      translateReturn(ret);
     }
+  }
+
+  private void translateReturn(ITAC.Return code) {
+    // TODO Depending on the convention
+
+    // Restore stack
+    append("    mov     rsp, rbp");
+    append("    pop     rdx");
+    // Pop return value
+    append("    pop     rcx");
+    // TODO push parameters
+
+    for (var operand : code.operands()) {
+      if (operand instanceof ITAC.Constant(String value, ITAC.Type type)) {
+        loadOperandIntoRegister("rax", operand, type);
+        append("    push    rax");
+      }
+      else if (operand instanceof ITAC.Variable(String name)) {
+        ITAC.Type resultType = symbolTable.getType(name);
+        var type = new ITAC.Type(resultType.name(), 8, resultType.isSigned());
+        // Load variable into memory. minimum size == 16
+        loadOperandIntoRegister("rax", operand, type);
+
+        append("    push    rax");
+      }
+    }
+
+    append("    mov     rbp, rdx");
+    append("    jmp     rcx");
+
+
+    // mov rsp, rbp
+    // pop rbp
+
+    // pop return address into rax
+    // push parameters
+    // jmp rax
   }
 
   private void translateConditionalJump(ITAC.ConditionalJump cj) {
