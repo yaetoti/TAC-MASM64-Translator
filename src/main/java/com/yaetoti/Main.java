@@ -8,24 +8,63 @@ import java.util.Objects;
 // Questions
 // Is
 
-class Program {
-  private final List<FunctionFrame> m_frames;
+class SymbolTable {
+  private final Map<String, ITAC.Type> types = new HashMap<>();
+  private final Map<String, Integer> offsets = new HashMap<>();
+  private int currentOffset = 0;
 
-  public Program(List<FunctionFrame> frames) {
+  public int AddVariable(String name, ITAC.Type type) {
+    types.put(name, type);
+    // Align stack to the size of the type, minimum 4 bytes
+    int allocationSize = Math.max(4, type.size());
+    currentOffset += allocationSize;
+    offsets.put(name, currentOffset);
+    return currentOffset;
+  }
+
+  public ITAC.Type GetType(String name) {
+    return Objects.requireNonNull(types.get(name), "Variable not defined: " + name);
+  }
+
+  public int GetOffset(String name) {
+    return Objects.requireNonNull(offsets.get(name), "Variable not defined: " + name);
+  }
+
+  public int GetTotalAllocationSize() {
+    return currentOffset;
+  }
+}
+
+class LabelGenerator {
+  int nextLabelIndex = 0;
+  public String GenLabel() {
+    return "L" + (nextLabelIndex++);
+  }
+}
+
+class Program {
+  record FunctionEntry(String name, FunctionFrame frame) {}
+
+  private final List<FunctionEntry> m_frames;
+
+  public Program(List<FunctionEntry> frames) {
     m_frames = frames;
+  }
+
+  public List<FunctionEntry> GetFunctions() {
+    return m_frames;
   }
 }
 
 class FunctionFrame {
   private final List<ITAC.Instruction> m_instructions;
-  private int nextLabelIndex = 0;
 
   public FunctionFrame(List<ITAC.Instruction> instructions) {
     m_instructions = instructions;
   }
 
-  public String GenLabelIndex() {
-    return "L" + nextLabelIndex++;
+  public List<ITAC.Instruction> GetInstructions() {
+    return m_instructions;
   }
 }
 
@@ -45,7 +84,7 @@ public class Main {
   public static final ITAC.Type u64 = new ITAC.Type("u64", 8, false);
 
   public static void main(String[] args) {
-// High-level goal:
+    // High-level goal:
     // s32 a = 5;
     // s32 b;
     // if (a > 10) { b = 100; } else { b = 200; }
@@ -56,9 +95,38 @@ public class Main {
     var a = new ITAC.Variable("a");
     var b = new ITAC.Variable("b");
 
+    LabelGenerator mainGen = new LabelGenerator();
+    String elseLabel = mainGen.GenLabel();
+    String endIfLabel = mainGen.GenLabel();
+
+    var hashFrame = new FunctionFrame(List.of(
+      new ITAC.Return(new ITAC.Constant("0", i64))
+    ));
+
+    var mainFrame = new FunctionFrame(List.of(
+      new ITAC.Assignment(a, new ITAC.Constant("5", i32)),
+      new ITAC.ConditionalJump(a, ITAC.ComparisonOp.LE, new ITAC.Constant("10", i32), elseLabel),
+      new ITAC.Assignment(b, new ITAC.Constant("100", i32)),
+      new ITAC.Jump(endIfLabel),
+      new ITAC.Label(elseLabel),
+      new ITAC.Assignment(b, new ITAC.Constant("200", i32)),
+      new ITAC.Label(endIfLabel),
+      new ITAC.Return(new ITAC.Constant("0", i64), new ITAC.Constant("200", i64), b)
+    ));
+
+    var program = new Program(List.of(
+      new Program.FunctionEntry("hash", hashFrame),
+      new Program.FunctionEntry("main", mainFrame)
+    ));
+
+    String masmCode = generator.Generate(program);
+    System.out.println(masmCode);
+
+
+/*
     // Generate unique labels for the control flow
-    String elseLabel = generator.newLabel(); // e.g., "L0"
-    String endIfLabel = generator.newLabel(); // e.g., "L1"
+    String elseLabel = generator.GenLabel(); // e.g., "L0"
+    String endIfLabel = generator.GenLabel(); // e.g., "L1"
 
     var program = new ITAC.Program(List.of(
       // s32 a = 5;
@@ -85,5 +153,6 @@ public class Main {
 
     String masmCode = generator.generate(program);
     System.out.println(masmCode);
+*/
   }
 }
