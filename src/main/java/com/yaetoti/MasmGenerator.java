@@ -5,21 +5,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
-enum Register {
-  RAX,
-  RCX,
-  RDX
-}
-
 public class MasmGenerator {
   // Maps variable names to their types and stack offsets
-  private static class SymbolTable {
-    private final Map<String, ITAC.Type> types = new HashMap<>();
+  public static class SymbolTable {
+    private final Map<String, TAC.Type> types = new HashMap<>();
     private final Map<String, Integer> offsets = new HashMap<>();
     private int currentOffset = 0;
 
     // Allocate space on the stack for a new variable
-    public int addVariable(String name, ITAC.Type type) {
+    public int addVariable(String name, TAC.Type type) {
       types.put(name, type);
       // Align stack to the size of the type, minimum 4 bytes
       int allocationSize = Math.max(8, type.size());
@@ -28,12 +22,12 @@ public class MasmGenerator {
       return currentOffset;
     }
 
-    public void AddSeparateVariable(String name, ITAC.Type type, int offset) {
+    public void AddSeparateVariable(String name, TAC.Type type, int offset) {
       types.put(name, type);
       offsets.put(name, offset);
     }
 
-    public ITAC.Type getType(String name) {
+    public TAC.Type getType(String name) {
       return Objects.requireNonNull(types.get(name), "Variable not defined: " + name);
     }
 
@@ -46,15 +40,15 @@ public class MasmGenerator {
     }
   }
 
-  private SymbolTable symbolTable;
-  private final StringBuilder code = new StringBuilder();
-  private int labelCounter = 0;
+  public SymbolTable symbolTable;
+  public final StringBuilder code = new StringBuilder();
+  public int labelCounter = 0;
 
   public String GenLabel() {
     return "L" + (labelCounter++);
   }
 
-  private void Append(String format, Object... args) {
+  public void Append(String format, Object... args) {
     code.append(String.format(format, args)).append("\n");
   }
 
@@ -67,7 +61,7 @@ public class MasmGenerator {
   }
 
   private String GetDereferenceCode(String variableName) {
-    ITAC.Type type = symbolTable.getType(variableName);
+    TAC.Type type = symbolTable.getType(variableName);
     String sizeDirective = switch (type.size()) {
       case 8 -> "qword ptr";
       case 4 -> "dword ptr";
@@ -135,7 +129,7 @@ public class MasmGenerator {
 
       // - Generate code
 
-      for (ITAC.Instruction instruction : function.GetInstructions()) {
+      for (TAC.Instruction instruction : function.GetInstructions()) {
         translateInstruction(instruction);
       }
 
@@ -151,7 +145,7 @@ public class MasmGenerator {
 
 
 
-  public String generate(ITAC.Program program) {
+  public String generate(TAC.Program program) {
     // First pass: build the symbol table to know all variables and required stack space
     buildSymbolTable(program.instructions());
 
@@ -166,7 +160,7 @@ public class MasmGenerator {
     Append("    sub     rsp, %d", symbolTable.getTotalAllocationSize());
 
     // Second pass: generate code for each instruction
-    for (ITAC.Instruction instruction : program.instructions()) {
+    for (TAC.Instruction instruction : program.instructions()) {
       translateInstruction(instruction);
     }
 
@@ -181,19 +175,19 @@ public class MasmGenerator {
     return code.toString();
   }
 
-  private void buildSymbolTable(List<ITAC.Instruction> instructions) {
-    for (ITAC.Instruction instruction : instructions) {
-      if (instruction instanceof ITAC.Assignment(var result, _)) {
-        ITAC.Type type = determineType(result, instruction);
+  private void buildSymbolTable(List<TAC.Instruction> instructions) {
+    for (TAC.Instruction instruction : instructions) {
+      if (instruction instanceof TAC.Assignment(var result, _)) {
+        TAC.Type type = determineType(result, instruction);
         symbolTable.addVariable(result.name(), type);
-      } else if (instruction instanceof ITAC.BinaryOperation(var result, _, _, _)) {
-        ITAC.Type type = determineType(result, instruction);
+      } else if (instruction instanceof TAC.BinaryOperation(var result, _, _, _)) {
+        TAC.Type type = determineType(result, instruction);
         symbolTable.addVariable(result.name(), type);
       }
     }
   }
 
-  private void translateInstruction(ITAC.Instruction instruction) {
+  private void translateInstruction(TAC.Instruction instruction) {
 // Add a small helper to not print "TACI$..." for cleaner comments
     String instructionString = instruction.toString()
       .replaceAll("TACI\\$[A-Za-z]+", "")
@@ -202,22 +196,44 @@ public class MasmGenerator {
     Append("\n    ; TAC: %s", instructionString);
 
     // UPDATED with new cases
-    if (instruction instanceof ITAC.Assignment a) {
-      translateAssignment(a);
-    } else if (instruction instanceof ITAC.BinaryOperation b) {
-      translateBinaryOperation(b);
-    } else if (instruction instanceof ITAC.Label(String name)) {
-      Append("%s:", name);
-    } else if (instruction instanceof ITAC.Jump(String targetLabel)) {
-      Append("    jmp     %s", targetLabel);
-    } else if (instruction instanceof ITAC.ConditionalJump cj) {
-      translateConditionalJump(cj);
-    } else if (instruction instanceof ITAC.Return ret) {
-      translateReturn(ret);
+    switch (instruction) {
+    case TAC.Assignment a -> translateAssignment(a);
+    case TAC.BinaryOperation b -> translateBinaryOperation(b);
+    case TAC.Label(String name) -> Append("%s:", name);
+    case TAC.Jump(String targetLabel) -> Append("    jmp     %s", targetLabel);
+    case TAC.ConditionalJump cj -> translateConditionalJump(cj);
+    case TAC.Return ret -> translateReturn(ret);
+    case TAC.Call call -> translateCall(call);
     }
   }
 
-  private void translateReturn(ITAC.Return code) {
+  private void translateCall(TAC.Call code) {
+    // TODO Depending on the convention
+
+    // Push parameters
+    for (var param : code.params()) {
+      switch (param) {
+      case TAC.Constant (String value, TAC.Type type) -> {
+        loadOperandIntoRegister(Register.RAX, param, type.isSigned() ? TAC.i64 : TAC.u64);
+
+      }
+      case TAC.Variable (String name) -> {
+
+      }
+      case TAC.Register register -> {
+      }
+      }
+    }
+
+    // Call
+    Append("    call     " + code.name());
+
+    // Move parameters
+
+    // Pop parameters
+  }
+
+  private void translateReturn(TAC.Return code) {
     // TODO Depending on the convention
 
     // Restore stack
@@ -228,13 +244,13 @@ public class MasmGenerator {
     // TODO push parameters
 
     for (var operand : code.operands()) {
-      if (operand instanceof ITAC.Constant(String value, ITAC.Type type)) {
+      if (operand instanceof TAC.Constant(String value, TAC.Type type)) {
         loadOperandIntoRegister(Register.RAX, operand, type);
         Append("    push    rax");
       }
-      else if (operand instanceof ITAC.Variable(String name)) {
-        ITAC.Type resultType = symbolTable.getType(name);
-        var type = new ITAC.Type(resultType.name(), 8, resultType.isSigned());
+      else if (operand instanceof TAC.Variable(String name)) {
+        TAC.Type resultType = symbolTable.getType(name);
+        var type = new TAC.Type(resultType.name(), 8, resultType.isSigned());
         // Load variable into memory. minimum size == 16
         loadOperandIntoRegister(Register.RAX, operand, type);
 
@@ -254,9 +270,9 @@ public class MasmGenerator {
     // jmp rax
   }
 
-  private void translateConditionalJump(ITAC.ConditionalJump cj) {
+  private void translateConditionalJump(TAC.ConditionalJump cj) {
     // Assume comparison is between same-sized types for simplicity
-    ITAC.Type opType = determineOperandType(cj.arg1());
+    TAC.Type opType = determineOperandType(cj.arg1());
 
     // 1. Load operands into registers
     loadOperandIntoRegister(Register.RAX, cj.arg1(), opType);
@@ -285,17 +301,17 @@ public class MasmGenerator {
   }
 
   // Helper to find an operand's type, needed for ConditionalJump
-  private ITAC.Type determineOperandType(ITAC.Operand operand) {
-    if (operand instanceof ITAC.Constant c) {
+  private TAC.Type determineOperandType(TAC.Operand operand) {
+    if (operand instanceof TAC.Constant c) {
       return c.type();
-    } else if (operand instanceof ITAC.Variable v) {
+    } else if (operand instanceof TAC.Variable v) {
       return symbolTable.getType(v.name());
     }
     throw new IllegalArgumentException("Unknown operand type");
   }
 
-  private void translateAssignment(ITAC.Assignment assignment) {
-    ITAC.Type resultType = symbolTable.getType(assignment.result().name());
+  private void translateAssignment(TAC.Assignment assignment) {
+    TAC.Type resultType = symbolTable.getType(assignment.result().name());
 
     // From anywhere to RAX
     loadOperandIntoRegister(Register.RAX, assignment.source(), resultType);
@@ -306,8 +322,8 @@ public class MasmGenerator {
     Append("    mov     %s, %s", resultAddr, sourceAddr);
   }
 
-  private void translateBinaryOperation(ITAC.BinaryOperation op) {
-    ITAC.Type resultType = symbolTable.getType(op.result().name());
+  private void translateBinaryOperation(TAC.BinaryOperation op) {
+    TAC.Type resultType = symbolTable.getType(op.result().name());
     String resultAddr = GetDereferenceCode(op.result().name());
 
     // 1. Load arg1 into RAX
@@ -349,7 +365,7 @@ public class MasmGenerator {
         Append("    div     %s", regC);
       }
 
-      if (op.op() == ITAC.Op.MOD) {
+      if (op.op() == TAC.Op.MOD) {
         // Remainder is in RDX, move it to RAX for storing
         String regD = GetRegister(Register.RDX, resultType.size());
         Append("    mov     %s, %s", regA, regD);
@@ -362,13 +378,13 @@ public class MasmGenerator {
   }
 
   // Helper to load any operand (variable or constant) into a register, handling type promotion
-  private void loadOperandIntoRegister(Register reg, ITAC.Operand operand, ITAC.Type targetType) {
-    if (operand instanceof ITAC.Constant c) {
+  private void loadOperandIntoRegister(Register reg, TAC.Operand operand, TAC.Type targetType) {
+    if (operand instanceof TAC.Constant c) {
       // Load constant
       Append("    mov     %s, %s", GetRegister(reg, targetType.size()), c.value());
-    } else if (operand instanceof ITAC.Variable v) {
+    } else if (operand instanceof TAC.Variable v) {
       // Promotion
-      ITAC.Type sourceType = symbolTable.getType(v.name());
+      TAC.Type sourceType = symbolTable.getType(v.name());
       String sourceAddr = GetDereferenceCode(v.name());
 
       // Handle type promotion (e.g., s32 to s64)
@@ -393,15 +409,15 @@ public class MasmGenerator {
   }
 
   // Helper Methods
-  private ITAC.Type determineType(ITAC.Variable var, ITAC.Instruction ctx) {
+  private TAC.Type determineType(TAC.Variable var, TAC.Instruction ctx) {
     // A real compiler would have a more robust type inference system.
     // Here, we infer the type from the context of the operation.
-    if (ctx instanceof ITAC.Assignment(_, var source)) {
-      if (source instanceof ITAC.Constant c) return c.type();
-      if (source instanceof ITAC.Variable v) return symbolTable.getType(v.name());
-    } else if (ctx instanceof ITAC.BinaryOperation(_, var arg1, _, var arg2)) {
-      ITAC.Type t1 = (arg1 instanceof ITAC.Constant c) ? c.type() : symbolTable.getType(((ITAC.Variable)arg1).name());
-      ITAC.Type t2 = (arg2 instanceof ITAC.Constant c) ? c.type() : symbolTable.getType(((ITAC.Variable)arg2).name());
+    if (ctx instanceof TAC.Assignment(_, var source)) {
+      if (source instanceof TAC.Constant c) return c.type();
+      if (source instanceof TAC.Variable v) return symbolTable.getType(v.name());
+    } else if (ctx instanceof TAC.BinaryOperation(_, var arg1, _, var arg2)) {
+      TAC.Type t1 = (arg1 instanceof TAC.Constant c) ? c.type() : symbolTable.getType(((TAC.Variable)arg1).name());
+      TAC.Type t2 = (arg2 instanceof TAC.Constant c) ? c.type() : symbolTable.getType(((TAC.Variable)arg2).name());
       // Promote to the larger type
       return t1.size() >= t2.size() ? t1 : t2;
     }
