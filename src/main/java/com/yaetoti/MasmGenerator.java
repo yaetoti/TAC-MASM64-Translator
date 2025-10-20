@@ -1,5 +1,6 @@
 package com.yaetoti;
 
+import java.lang.classfile.instruction.LoadInstruction;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -16,7 +17,7 @@ public class MasmGenerator {
     public int addVariable(String name, TAC.Type type) {
       types.put(name, type);
       // Align stack to the size of the type, minimum 4 bytes
-      int allocationSize = Math.max(8, type.size());
+      int allocationSize = Math.max(8, type.size().size);
       currentOffset += allocationSize;
       offsets.put(name, currentOffset);
       return currentOffset;
@@ -38,6 +39,12 @@ public class MasmGenerator {
     public int getTotalAllocationSize() {
       return currentOffset;
     }
+
+    public TAC.OffsetMemory GetMemoryOperand(String name) {
+      var type = types.get(name);
+      var offset = offsets.get(name);
+      return new TAC.OffsetMemory(type.size(), TAC.Register.RBP, null, 0, offset);
+    }
   }
 
   public SymbolTable symbolTable;
@@ -52,48 +59,21 @@ public class MasmGenerator {
     code.append(String.format(format, args)).append("\n");
   }
 
-  private String GetRegister(Register register, int size) {
-    return switch (register) {
-      case Register.RAX -> switch (size) { case 8 -> "rax"; case 4 -> "eax"; case 2 -> "ax"; case 1 -> "al"; default -> throw new IllegalArgumentException("Invalid register size: " + size); };
-      case Register.RCX -> switch (size) { case 8 -> "rcx"; case 4 -> "ecx"; case 2 -> "cx"; case 1 -> "cl"; default -> throw new IllegalArgumentException("Invalid register size: " + size); };
-      case Register.RDX -> switch (size) { case 8 -> "rdx"; case 4 -> "edx"; case 2 -> "dx"; case 1 -> "dl"; default -> throw new IllegalArgumentException("Invalid register size: " + size); };
+  // Helpers
+
+  private String MoveToRegister(TAC.Register dst, TAC.Operand src) {
+    return switch (src) {
+      case TAC.Constant constant -> Codegen.MoveToRegister(dst, constant);
+      case TAC.Variable variable -> {
+        var type = symbolTable.getType(variable.name());
+        var memory = symbolTable.GetMemoryOperand(variable.name());
+        yield Codegen.MoveToRegister(dst, memory, type.isSigned());
+      }
+      default -> throw new IllegalStateException("Unsupported operand: " + src);
     };
   }
 
-  private String GetDereferenceCode(String variableName) {
-    TAC.Type type = symbolTable.getType(variableName);
-    String sizeDirective = switch (type.size()) {
-      case 8 -> "qword ptr";
-      case 4 -> "dword ptr";
-      case 2 -> "word ptr";
-      case 1 -> "byte ptr";
-      default -> "";
-    };
-
-    int offset = symbolTable.getOffset(variableName);
-    if (offset < 0) {
-      return String.format("%s [rbp + %d]", sizeDirective, -offset);
-    }
-
-    return String.format("%s [rbp - %d]", sizeDirective, offset);
-  }
-
-  private String GetDereferenceCode(String variableName, int size) {
-    String sizeDirective = switch (size) {
-      case 8 -> "qword ptr";
-      case 4 -> "dword ptr";
-      case 2 -> "word ptr";
-      case 1 -> "byte ptr";
-      default -> "";
-    };
-
-    int offset = symbolTable.getOffset(variableName);
-    if (offset < 0) {
-      return String.format("%s [rbp + %d]", sizeDirective, -offset);
-    }
-
-    return String.format("%s [rbp - %d]", sizeDirective, offset);
-  }
+  // Not helpers
 
   public String Generate(Program program) {
     // Generate sections
@@ -211,19 +191,19 @@ public class MasmGenerator {
     // TODO Depending on the convention
 
     // Push parameters
-    for (var param : code.params()) {
-      switch (param) {
-      case TAC.Constant (String value, TAC.Type type) -> {
-        loadOperandIntoRegister(Register.RAX, param, type.isSigned() ? TAC.i64 : TAC.u64);
-
-      }
-      case TAC.Variable (String name) -> {
-
-      }
-      case TAC.Register register -> {
-      }
-      }
-    }
+//    for (var param : code.params()) {
+//      switch (param) {
+//      case TAC.Constant (String value, TAC.Type type) -> {
+//        loadOperandIntoRegister(Register.RAX, param, type.isSigned() ? TAC.i64 : TAC.u64);
+//
+//      }
+//      case TAC.Variable (String name) -> {
+//
+//      }
+//      case TAC.Register register -> {
+//      }
+//      }
+//    }
 
     // Call
     Append("    call     " + code.name());
@@ -244,18 +224,8 @@ public class MasmGenerator {
     // TODO push parameters
 
     for (var operand : code.operands()) {
-      if (operand instanceof TAC.Constant(String value, TAC.Type type)) {
-        loadOperandIntoRegister(Register.RAX, operand, type);
-        Append("    push    rax");
-      }
-      else if (operand instanceof TAC.Variable(String name)) {
-        TAC.Type resultType = symbolTable.getType(name);
-        var type = new TAC.Type(resultType.name(), 8, resultType.isSigned());
-        // Load variable into memory. minimum size == 16
-        loadOperandIntoRegister(Register.RAX, operand, type);
-
-        Append("    push    rax");
-      }
+      Append(MoveToRegister(TAC.Register.RAX, operand));
+      Append("    push    rax");
     }
 
     Append("    mov     rbp, rdx");
@@ -272,17 +242,18 @@ public class MasmGenerator {
 
   private void translateConditionalJump(TAC.ConditionalJump cj) {
     // Assume comparison is between same-sized types for simplicity
+    // TODO yeah, yeah, different sign, different size. We must have some uncomparable units. u64 and i64. Need upcast if signs differ
     TAC.Type opType = determineOperandType(cj.arg1());
 
     // 1. Load operands into registers
-    loadOperandIntoRegister(Register.RAX, cj.arg1(), opType);
-    loadOperandIntoRegister(Register.RCX, cj.arg2(), opType);
+    var rax = TAC.Register.GetRegister(TAC.Register.Type.RAX, opType.size());
+    var rcx = TAC.Register.GetRegister(TAC.Register.Type.RCX, opType.size());
 
-    String regA = GetRegister(Register.RAX, opType.size());
-    String regC = GetRegister(Register.RCX, opType.size());
+    Append(MoveToRegister(rax, cj.arg1()));
+    Append(MoveToRegister(rcx, cj.arg2()));
 
     // 2. Compare the two registers
-    Append("    cmp     %s, %s", regA, regC);
+    Append("    cmp     %s, %s", rax.name(), rcx.name());
 
     // 3. Select the correct jump instruction based on the operator
     String jumpInstruction = switch (cj.op()) {
@@ -314,26 +285,23 @@ public class MasmGenerator {
     TAC.Type resultType = symbolTable.getType(assignment.result().name());
 
     // From anywhere to RAX
-    loadOperandIntoRegister(Register.RAX, assignment.source(), resultType);
+    Append(MoveToRegister(TAC.Register.GetRegister(TAC.Register.Type.RAX, resultType.size()), assignment.source()));
 
     // From RAX to memory
-    String sourceAddr = GetRegister(Register.RAX, resultType.size());
-    String resultAddr = GetDereferenceCode(assignment.result().name());
-    Append("    mov     %s, %s", resultAddr, sourceAddr);
+    Append(Codegen.MoveToMemory(symbolTable.GetMemoryOperand(assignment.result().name()), TAC.Register.GetRegister(TAC.Register.Type.RAX, resultType.size())));
   }
 
   private void translateBinaryOperation(TAC.BinaryOperation op) {
     TAC.Type resultType = symbolTable.getType(op.result().name());
-    String resultAddr = GetDereferenceCode(op.result().name());
 
     // 1. Load arg1 into RAX
-    loadOperandIntoRegister(Register.RAX, op.arg1(), resultType);
+    Append(MoveToRegister(TAC.Register.GetRegister(TAC.Register.Type.RAX, resultType.size()), op.arg1()));
 
     // 2. Load arg2 into RCX
-    loadOperandIntoRegister(Register.RCX, op.arg2(), resultType);
+    Append(MoveToRegister(TAC.Register.GetRegister(TAC.Register.Type.RCX, resultType.size()), op.arg2()));
 
-    String regA = GetRegister(Register.RAX, resultType.size());
-    String regC = GetRegister(Register.RCX, resultType.size());
+    String regA = TAC.Register.GetRegister(TAC.Register.Type.RAX, resultType.size()).name();
+    String regC = TAC.Register.GetRegister(TAC.Register.Type.RCX, resultType.size()).name();
 
     // 3. Perform the operation
     switch (op.op()) {
@@ -350,10 +318,10 @@ public class MasmGenerator {
       // Dividend is already in RAX. Prepare RDX.
       if (resultType.isSigned()) {
         switch (resultType.size()) { // Sign-extend RAX into RDX
-        case 8 -> Append("    cqo");
-        case 4 -> Append("    cdq");
-        case 2 -> Append("    cwd");
-        case 1 -> Append("    cbw"); // Extends AL into AX, not quite RDX
+        case QWORD -> Append("    cqo");
+        case DWORD -> Append("    cdq");
+        case WORD -> Append("    cwd");
+        case BYTE -> Append("    cbw"); // Extends AL into AX, not quite RDX
         }
       } else {
         Append("    xor     rdx, rdx  ; Clear RDX for unsigned division");
@@ -367,45 +335,14 @@ public class MasmGenerator {
 
       if (op.op() == TAC.Op.MOD) {
         // Remainder is in RDX, move it to RAX for storing
-        String regD = GetRegister(Register.RDX, resultType.size());
+        String regD = TAC.Register.GetRegister(TAC.Register.Type.RDX, resultType.size()).name();
         Append("    mov     %s, %s", regA, regD);
       }
     }
     }
 
     // 4. Store the result from RAX back to the variable's stack location
-    Append("    mov     %s, %s", resultAddr, regA);
-  }
-
-  // Helper to load any operand (variable or constant) into a register, handling type promotion
-  private void loadOperandIntoRegister(Register reg, TAC.Operand operand, TAC.Type targetType) {
-    if (operand instanceof TAC.Constant c) {
-      // Load constant
-      Append("    mov     %s, %s", GetRegister(reg, targetType.size()), c.value());
-    } else if (operand instanceof TAC.Variable v) {
-      // Promotion
-      TAC.Type sourceType = symbolTable.getType(v.name());
-      String sourceAddr = GetDereferenceCode(v.name());
-
-      // Handle type promotion (e.g., s32 to s64)
-      if (targetType.size() > sourceType.size()) {
-        if (sourceType.isSigned()) {
-          if (sourceType.size() == 4) {
-            Append("    movsxd  %s, %s", reg, sourceAddr);
-          } else {
-            Append("    movsx   %s, %s", reg, sourceAddr);
-          }
-        } else {
-          if (sourceType.size() == 4) {
-            Append("    movzxd  %s, %s", reg, sourceAddr);
-          } else {
-            Append("    movzx   %s, %s", reg, sourceAddr);
-          }
-        }
-      } else {
-        Append("    mov     %s, %s", GetRegister(reg, targetType.size()), sourceAddr);
-      }
-    }
+    Append(Codegen.MoveToMemory(symbolTable.GetMemoryOperand(op.result().name()), TAC.Register.GetRegister(TAC.Register.Type.RAX, resultType.size())));
   }
 
   // Helper Methods
@@ -419,7 +356,7 @@ public class MasmGenerator {
       TAC.Type t1 = (arg1 instanceof TAC.Constant c) ? c.type() : symbolTable.getType(((TAC.Variable)arg1).name());
       TAC.Type t2 = (arg2 instanceof TAC.Constant c) ? c.type() : symbolTable.getType(((TAC.Variable)arg2).name());
       // Promote to the larger type
-      return t1.size() >= t2.size() ? t1 : t2;
+      return t1.size().size >= t2.size().size ? t1 : t2;
     }
     throw new IllegalStateException("Cannot determine type for " + var.name());
   }

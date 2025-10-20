@@ -8,32 +8,6 @@ import java.util.Objects;
 // Questions
 // Is
 
-class SymbolTable {
-  private final Map<String, TAC.Type> types = new HashMap<>();
-  private final Map<String, Integer> offsets = new HashMap<>();
-  private int currentOffset = 0;
-
-  public int AddVariable(String name, TAC.Type type) {
-    types.put(name, type);
-    // Align stack to the size of the type, minimum 4 bytes
-    int allocationSize = Math.max(4, type.size());
-    currentOffset += allocationSize;
-    offsets.put(name, currentOffset);
-    return currentOffset;
-  }
-
-  public TAC.Type GetType(String name) {
-    return Objects.requireNonNull(types.get(name), "Variable not defined: " + name);
-  }
-
-  public int GetOffset(String name) {
-    return Objects.requireNonNull(offsets.get(name), "Variable not defined: " + name);
-  }
-
-  public int GetTotalAllocationSize() {
-    return currentOffset;
-  }
-}
 
 class LabelGenerator {
   int nextLabelIndex = 0;
@@ -78,10 +52,6 @@ class FunctionFrame {
   public FunctionDeclaration GetDeclaration() {
     return m_declaration;
   }
-}
-
-class Scope {
-
 }
 
 
@@ -156,38 +126,38 @@ public class Main {
     // Create frames
     var hashFrame = new FunctionFrame(
       new FunctionDeclaration("hash", new Parameter[] {
-        new Parameter("number1", TAC.i64),
-        new Parameter("number2", TAC.i64)
-      }, new TAC.Type[] { TAC.i64, TAC.i64 }),
+        new Parameter("number1", TAC.Type.i64),
+        new Parameter("number2", TAC.Type.i64)
+      }, new TAC.Type[] { TAC.Type.i64, TAC.Type.i64 }),
       List.of(
-        new TAC.Assignment(a, new TAC.Constant("5", TAC.i32)),
+        new TAC.Assignment(a, new TAC.Constant("5", TAC.Type.i32)),
         //new ITAC.Return(new ITAC.Constant("0", i64))
         // return 2 values: 0 and parameter 2
-        new TAC.Return(new TAC.Constant("0", TAC.i64), number2)
+        new TAC.Return(new TAC.Constant("0", TAC.Type.i64), number2)
       )
     );
 
     var mainFrame = new FunctionFrame(
       new FunctionDeclaration("main", new Parameter[] {}, new TAC.Type[] {}),
       List.of(
-        new TAC.Assignment(a, new TAC.Constant("5", TAC.i32)),
-        new TAC.ConditionalJump(a, TAC.ComparisonOp.LE, new TAC.Constant("10", TAC.i32), elseLabel),
-        new TAC.Assignment(b, new TAC.Constant("100", TAC.i32)),
+        new TAC.Assignment(a, new TAC.Constant("5", TAC.Type.i32)),
+        new TAC.ConditionalJump(a, TAC.ComparisonOp.LE, new TAC.Constant("10", TAC.Type.i32), elseLabel),
+        new TAC.Assignment(b, new TAC.Constant("100", TAC.Type.i32)),
         new TAC.Jump(endIfLabel),
         new TAC.Label(elseLabel),
-        new TAC.Assignment(b, new TAC.Constant("200", TAC.i32)),
+        new TAC.Assignment(b, new TAC.Constant("200", TAC.Type.i32)),
         new TAC.Label(endIfLabel),
 
         // Call hash. Pass 2 parameters. Get the second return value
-        new TAC.Assignment(resultHash, new TAC.Constant("0", TAC.i64)),
+        new TAC.Assignment(resultHash, new TAC.Constant("0", TAC.Type.i64)),
         new TAC.Call("hash", new TAC.Operand[] {
-            new TAC.Constant("420", TAC.i64),
-            new TAC.Constant("69", TAC.i64)
+            new TAC.Constant("420", TAC.Type.i64),
+            new TAC.Constant("69", TAC.Type.i64)
           },
           new TAC.Variable[] { null, resultHash }
         ),
 
-        new TAC.Return(new TAC.Constant("0", TAC.i64), new TAC.Constant("200", TAC.i64), resultHash)
+        new TAC.Return(new TAC.Constant("0", TAC.Type.i64), new TAC.Constant("200", TAC.Type.i64), resultHash)
       )
     );
 
