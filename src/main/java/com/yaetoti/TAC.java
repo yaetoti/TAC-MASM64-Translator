@@ -4,6 +4,7 @@ import java.util.List;
 /**
  * A simple set of records to define a Three-Address Code (TAC) Intermediate Representation.
  */
+// TODO looks rudimentary. We can have 10 byte floats, structures, arrays, VLA, ...
 public interface TAC {
   enum Size {
     BYTE(1),
@@ -15,6 +16,16 @@ public interface TAC {
 
     Size(int size) {
       this.size = size;
+    }
+
+    public static Size GetSize(int size) {
+      return switch (size) {
+        case 1 -> BYTE;
+        case 2 -> WORD;
+        case 4 -> DWORD;
+        case 8 -> QWORD;
+        default -> throw new IllegalArgumentException("Invalid size");
+      };
     }
   }
 

@@ -36,6 +36,27 @@ class Program {
   }
 }
 
+/*
+TODO For return values:
+return x, y, z
+
+- x y z are variables or constant
+- Check type correspondence
+- write operands to memory
+
+
+TODO for parameters:
+Only Type. Other things are defined by conventions
+
+u32 a, u64 b, u32 c
+
+call (a, b, c; x, y, z)
+- Check type correspondence
+- allocate space for return + params
+- place params
+
+* */
+
 class FunctionFrame {
   private final FunctionDeclaration m_declaration;
   private final List<TAC.Instruction> m_instructions;
@@ -104,12 +125,6 @@ public class Main {
   // Define type constants for convenience
 
   public static void main(String[] args) {
-    // High-level goal:
-    // s32 a = 5;
-    // s32 b;
-    // if (a > 10) { b = 100; } else { b = 200; }
-    // The final value of b should be 200.
-
     MasmGenerator generator = new MasmGenerator();
 
     // Create variables
@@ -120,8 +135,24 @@ public class Main {
 
     // Create labels TODO separate labels for different functions
     LabelGenerator mainGen = new LabelGenerator();
-    String elseLabel = mainGen.GenLabel();
+    String ifLabel = mainGen.GenLabel();
     String endIfLabel = mainGen.GenLabel();
+
+    /*
+
+    i64, i64 hash(i64 number1, i64 number2) {
+      i32 a = 5;
+      return 0, number2;
+    }
+
+    i64, i64, i64 main() {
+      i32 a = 5;
+      i32 b = a <= 10 ? 100 : 200;
+      var (_, resultHash) = hash(420, 69);
+      return 0, 200, resultHash;
+    }
+
+     */
 
     // Create frames
     var hashFrame = new FunctionFrame(
@@ -138,13 +169,14 @@ public class Main {
     );
 
     var mainFrame = new FunctionFrame(
-      new FunctionDeclaration("main", new Parameter[] {}, new TAC.Type[] {}),
+      new FunctionDeclaration("main", new Parameter[] {}, new TAC.Type[] {TAC.Type.i64, TAC.Type.i64, TAC.Type.i64}),
       List.of(
         new TAC.Assignment(a, new TAC.Constant("5", TAC.Type.i32)),
-        new TAC.ConditionalJump(a, TAC.ComparisonOp.LE, new TAC.Constant("10", TAC.Type.i32), elseLabel),
+
+        new TAC.ConditionalJump(a, TAC.ComparisonOp.LE, new TAC.Constant("10", TAC.Type.i32), ifLabel),
         new TAC.Assignment(b, new TAC.Constant("100", TAC.Type.i32)),
         new TAC.Jump(endIfLabel),
-        new TAC.Label(elseLabel),
+        new TAC.Label(ifLabel),
         new TAC.Assignment(b, new TAC.Constant("200", TAC.Type.i32)),
         new TAC.Label(endIfLabel),
 
@@ -170,38 +202,5 @@ public class Main {
     // Generate code
     String masmCode = generator.Generate(program);
     System.out.println(masmCode);
-
-
-/*
-    // Generate unique labels for the control flow
-    String elseLabel = generator.GenLabel(); // e.g., "L0"
-    String endIfLabel = generator.GenLabel(); // e.g., "L1"
-
-    var program = new ITAC.Program(List.of(
-      // s32 a = 5;
-      new ITAC.Assignment(a, new ITAC.Constant("5", i32)),
-
-      // This is the IF statement
-      // if (a <= 10) goto elseLabel;
-      new ITAC.ConditionalJump(a, ITAC.ComparisonOp.LE, new ITAC.Constant("10", i32), elseLabel),
-
-      // THEN block
-      new ITAC.Assignment(b, new ITAC.Constant("100", i32)),
-      new ITAC.Jump(endIfLabel),
-
-      // ELSE block
-      new ITAC.Label(elseLabel),
-      new ITAC.Assignment(b, new ITAC.Constant("200", i32)),
-
-      // End of IF
-      new ITAC.Label(endIfLabel),
-
-      // Return
-      new ITAC.Return(new ITAC.Constant("0", i64), new ITAC.Constant("200", i64), b)
-    ));
-
-    String masmCode = generator.generate(program);
-    System.out.println(masmCode);
-*/
   }
 }

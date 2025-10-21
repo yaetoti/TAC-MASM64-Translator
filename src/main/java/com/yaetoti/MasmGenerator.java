@@ -1,10 +1,7 @@
 package com.yaetoti;
 
 import java.lang.classfile.instruction.LoadInstruction;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 
 public class MasmGenerator {
   // Maps variable names to their types and stack offsets
@@ -43,10 +40,12 @@ public class MasmGenerator {
     public TAC.OffsetMemory GetMemoryOperand(String name) {
       var type = types.get(name);
       var offset = offsets.get(name);
-      return new TAC.OffsetMemory(type.size(), TAC.Register.RBP, null, 0, offset);
+      return new TAC.OffsetMemory(type.size(), TAC.Register.RBP, null, 0, -offset);
     }
   }
 
+  public FunctionFrame currentFrame;
+  public Program program;
   public SymbolTable symbolTable;
   public final StringBuilder code = new StringBuilder();
   public int labelCounter = 0;
@@ -76,6 +75,8 @@ public class MasmGenerator {
   // Not helpers
 
   public String Generate(Program program) {
+    this.program = program;
+
     // Generate sections
     Append(".data");
     Append(".code");
@@ -84,6 +85,7 @@ public class MasmGenerator {
 
     for (var function : program.GetFunctions()) {
       // - Init values
+      currentFrame = function;
       symbolTable = new SymbolTable();
       labelCounter = 0;
 
@@ -188,56 +190,186 @@ public class MasmGenerator {
   }
 
   private void translateCall(TAC.Call code) {
+    // return n [arr]
+    // nah no way bro, how we gonna know how much we need to take? Theres a way, reverse parameters, get n, but wtf even is that
+
     // TODO Depending on the convention
+    // Let's stop on i64 u64 for now.
 
-    // Push parameters
-//    for (var param : code.params()) {
-//      switch (param) {
-//      case TAC.Constant (String value, TAC.Type type) -> {
-//        loadOperandIntoRegister(Register.RAX, param, type.isSigned() ? TAC.i64 : TAC.u64);
-//
-//      }
-//      case TAC.Variable (String name) -> {
-//
-//      }
-//      case TAC.Register register -> {
-//      }
-//      }
-//    }
+    // TODO one of the problems: on the top level we do not work with registers. Registers are allocated. We work with either constants either variables
 
-    // Call
-    Append("    call     " + code.name());
+    // Calculate sizes
+    int returnSize = 0;
+    int paramsSize = 0;
+    int[] paramSizes = new int[code.params().length];
+    int[] returnSizes = new int[code.returnVariables().length];
+
+    // Calculate params size
+    for (int i = 0; i < paramSizes.length; ++i) {
+      var param = code.params()[i];
+
+      switch (param) {
+        case TAC.Constant (String value, TAC.Type type) -> {
+          paramsSize += type.size().size;
+          paramSizes[i] = type.size().size;
+        }
+        case TAC.Variable (String name) -> {
+          paramsSize += symbolTable.getType(name).size().size;
+          paramSizes[i] = symbolTable.getType(name).size().size;
+        }
+        case TAC.Register register -> {
+          paramsSize += register.size().size;
+          paramSizes[i] = register.size().size;
+        }
+      default -> throw new IllegalStateException("Unexpected value: " + param);
+      }
+    }
+
+    // Calculate return values sizes
+    for (int i = 0; i < code.returnVariables().length; ++i) {
+      var retVal = code.returnVariables()[i];
+      // TODO if it is 0, we need to find function declaration, get type and use it as size
+
+      if (retVal == null) {
+        for (var function : program.GetFunctions()) {
+          if (function.GetDeclaration().name().equals(code.name())) {
+            returnSize += function.GetDeclaration().returnTypes()[i].size().size;
+            returnSizes[i] = function.GetDeclaration().returnTypes()[i].size().size;
+          }
+        }
+
+        continue;
+      }
+
+      returnSize += symbolTable.getType(retVal.name()).size().size;
+      returnSizes[i] = symbolTable.getType(retVal.name()).size().size;
+    }
+
+    // Reserve space for return values and parameters
+    Append("    ; Reserving space and moving parameters");
+    if (returnSize + paramsSize != 0) {
+      Append("    sub rsp, " + (returnSize + paramsSize));
+    }
 
     // Move parameters
+    int offset = 0;
+    for (int i = 0; i < code.params().length; ++i) {
+      var param = code.params()[i];
 
-    // Pop parameters
+      switch (param) {
+      case TAC.Constant constant -> {
+        var reg = TAC.Register.GetRegister(TAC.Register.Type.RAX, constant.type().size());
+        Append(Codegen.MoveToRegister(reg, constant));
+        Append(Codegen.MoveToMemory(new TAC.OffsetMemory(constant.type().size(), TAC.Register.RSP, null, 0, offset), reg));
+      }
+      case TAC.Variable (String name) -> {
+        var reg = TAC.Register.GetRegister(TAC.Register.Type.RAX, symbolTable.getType(name).size());
+        Append(Codegen.MoveToRegister(reg, symbolTable.GetMemoryOperand(name), false));
+        Append(Codegen.MoveToMemory(new TAC.OffsetMemory(symbolTable.getType(name).size(), TAC.Register.RSP, null, 0, offset), reg));
+      }
+      case TAC.Register register -> {
+        var reg = TAC.Register.GetRegister(TAC.Register.Type.RAX, register.size());
+        Append(Codegen.MoveToRegister(reg, register, false));
+        Append(Codegen.MoveToMemory(new TAC.OffsetMemory(register.size(), TAC.Register.RSP, null, 0, offset), reg));
+      }
+      default -> throw new IllegalStateException("Unexpected value: " + param);
+      }
+
+      offset += paramSizes[i];
+    }
+
+    // Call
+    Append("    ; Calling function");
+    Append("    call     " + code.name());
+
+    // Comment
+    Append("    ; Unloading return values");
+
+    // Move retvals to variables
+    offset = paramsSize;
+    for (int i = 0; i < code.returnVariables().length; ++i) {
+      var retVal = code.returnVariables()[i];
+      if (retVal == null) {
+        // ignore
+        offset += returnSizes[i];
+        continue;
+      }
+
+      var reg = TAC.Register.GetRegister(TAC.Register.Type.RAX, symbolTable.getType(retVal.name()).size());
+
+      // Move from memory to rax
+      Append(Codegen.MoveToRegister(reg, new TAC.OffsetMemory(symbolTable.getType(retVal.name()).size(), TAC.Register.RSP, null, 0, offset), false));
+
+      // Move from rax to var memory
+      Append(Codegen.MoveToMemory(symbolTable.GetMemoryOperand(retVal.name()), reg));
+
+      offset += returnSizes[i];
+    }
+
+    // Deallocate return+param space
+    Append("    ; Deallocating return+param space");
+    if (returnSize + paramsSize != 0) {
+      Append("    add rsp, " + (returnSize + paramsSize));
+    }
+  }
+
+  private static int GetFunctionParametersSize(FunctionDeclaration func) {
+    int size = 0;
+    for (var param : func.parameters()) {
+      size += param.type().size().size;
+    }
+
+    return size;
   }
 
   private void translateReturn(TAC.Return code) {
     // TODO Depending on the convention
 
-    // Restore stack
-    Append("    mov     rsp, rbp");
-    Append("    pop     rdx");
-    // Pop return value
-    Append("    pop     rcx");
-    // TODO push parameters
+    // TODO
+    // Move return values to the reserved space
+    // Restore frame
+    // Call ret
+    // TODO only variables or immediate. Symbol table must know low level location (imm, register, memory)
 
-    for (var operand : code.operands()) {
-      Append(MoveToRegister(TAC.Register.RAX, operand));
-      Append("    push    rax");
+    // So, bruh, we need to get current function frame,
+    // And we can precalculate that. But... it depends on conventions
+
+    int paramsSize = GetFunctionParametersSize(currentFrame.GetDeclaration());
+    int offset = 16 + paramsSize;
+
+    Append("    ; Moving return values");
+    for (int i = 0; i < code.operands().length; ++i) {
+      var operand = code.operands()[i];
+      int operandSize = switch (operand) {
+        case TAC.Constant (String value, TAC.Type type) -> operandSize = type.size().size;
+        case TAC.Variable (String name) -> operandSize = symbolTable.getType(name).size().size;
+        default -> throw new IllegalStateException("Unexpected value: " + operand);
+      };
+
+      // From where? Depending on the return operand. For now, it can be either constant either variable
+      // Move to the corresponding memory location
+
+      // Load return value into rax
+      switch (operand) {
+      case TAC.Constant _, TAC.Variable _ -> {}
+      default -> throw new IllegalStateException("Unexpected value: " + operand);
+      }
+
+      // TODO need a function to move into a register of corresponding size. Need to return the register
+      var reg = TAC.Register.GetRegister(TAC.Register.Type.RAX, TAC.Size.GetSize(operandSize));
+      Append(MoveToRegister(reg, operand));
+
+      // Move rax to parameter memory location
+      Append(Codegen.MoveToMemory(new TAC.OffsetMemory(TAC.Size.GetSize(operandSize), TAC.Register.RBP, null, 0, offset), reg));
+
+      offset += operandSize;
     }
 
-    Append("    mov     rbp, rdx");
-    Append("    jmp     rcx");
-
-
-    // mov rsp, rbp
-    // pop rbp
-
-    // pop return address into rax
-    // push parameters
-    // jmp rax
+    // Restore frame, call return
+    Append("    ; Restoring frame");
+    Append("    mov     rsp, rbp");
+    Append("    pop     rbp");
+    Append("    ret");
   }
 
   private void translateConditionalJump(TAC.ConditionalJump cj) {
