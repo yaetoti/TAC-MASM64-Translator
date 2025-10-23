@@ -1,58 +1,190 @@
 package com.yaetoti;
 
-import java.lang.classfile.instruction.LoadInstruction;
-import java.util.*;
+// +Задача: Разделить операнды ТАК на операнды ТАК и расположения МАСМ
+
+// Проблемы:
+// +На данный момент параметр, переменную или операнд инструкции можно указать как имя переменной, так и память и регистр. Мы не аллоцируем регистры на высоком уровне, мы работаем с переменными
+
+// Решение:
+// +Разделить личность символа и его конкретное расположение, которое зависит от архитектуры
+// +Разделить структуры. Оставить на верхнем уровне символ и константу. На уровне МАСМ сделать память, регистры, константу
+// +Хранить идентификатор, имя и тип на верхнем уровне
+
+// Новые проблемы:
+// - TODO Нужно создать новую таблицу МАСМ, которая связывает символы и локацию
+// - TODO Переписать методы загрузки в регистр и память с новыми таблицами
+// - Рассмотреть процесс определения локации параметров и перемещения их локации при пуше в стек (цель?)
+// + Исследовать, можно ли построить таблицу МАСМ сразу или расположение некоторых переменных станет известно только позже
+// + Рассмотреть возможность хранения области переменной (параметр, локальная, ...), это может помочь. Назвать конкретные места, где это может помочь
+// При построении таблицы символов функции, чтобы найти локальные символы и параметры
+
+
+
+// TODO Задача: Разделить таблицу символов на глобальную таблицу символов и таблицу символов МАСМ
+
+// Проблемы:
+// Переменные могут иметь одинаковые имена (разные блоки, функции, происходит затенение имён. Имя одно, но это разные символы)
+
+// Решения:
+// +Заменить имена на уникальный идентификатор. Имя можно хранить отдельно, если нужно
+// +Переписать ТАК переменные под идентификаторы
+
+// Новые проблемы:
+// + Когда именно строить таблицу МАСМ?
+// TODO Из-за глобальных переменных мы знаем, что таблицу нужно строить сразу для всей программы: файлов и функций
+// ? Пока пойдёт, но в будущем мы будем создавать промежуточные переменные. Но это же на уровне ТАК? Да, но нужно распределить регистры на каждую инструкцию
+// + Непонятно, что именно нужно в таблице МАСМ
+// TODO Сопоставление символа(id) и локации
+// TODO Нужна функция, которая по Symbol или symbolID возвращает одну локацию переменной для загрузки в регистр или память.
+// + Определить поток таблицы МАСМ: мы изменяем символы или нет? Нет.
+// Мы не выполняем инструкций, потому нет
+// Переменные известны заранее, на этапе создания ТАК
+// + У всех ли переменных изначально есть место расположения?
+// Итог: да
+// + Определить, одну или несколько локаций нужно хранить для символа.
+// Итог: Одно
+// - TODO Остаётся нерабочий код, который генерирует инструкции. Провести рефакторинг, или определить проблемы
+
+// Анализ:
+// + Определить, нужно хранить одну или несколько мест размещения символа?
+// Представим параметр в конвенции stdcall. Перед вызовом мы помещаем его в RCX. На первой инструкции он находится в RCX.
+// На данный момент все операции происходят с фиксированными регистрами RAX RCX RDX, ...
+// Это значит, что этот регистр в начале нужно освободить и переместить данные в стек
+// Мы можем просто продублировать данные в стек по какой-то причине, но продолжить использовать регистр. А можем переместить данные в стек и считать регистр пустым
+// Итог: нужно одно место
+
+// + Когда нам нужно продублировать данные? Мне трудно это представить
+// К примеру, если нам будут нужны эти данные, а данные в регистре изменятся после операции. Т.е. поменяется смысл регистра
+// Смысл регистра изменится, а вот значение переменной... А, я понял. По-идее, операнды не меняются в выражениях, а здесь результат складывается в операнд и изначальное выражение утрачивается
+// То есть переменная изменяется. Побочный ефект.
+// В этот момент значение операнда пропадает
+// Если оно понадобится позже, нам нужно продублировать его в другой регистр или на стек
+// TODO Простой способ: Эту проблему можно решить на месте. Если значение складывается в этот же регистр, копируем данные и меняем локацию в таблице символов
+// Сложный способ: Просчитать все взаимодействия заранее и определить оптимальный поток перемещения данных
+// Других причин нет. Для этого на высоком уровне создаётся другая переменная и это делает программист
+
+// + У всех ли переменных изначально есть место расположения? Это нужно для того, чтобы узнать когда именно мы строим таблицу символов МАСМ
+// У параметров место расположения зависит от конвенции, но оно известно заранее (если это не VLA)
+// Локальные переменные выделяются на стеке в начале функции. А сколько и какие? Узнать можно сделав выборку символов определённой функции
+// TODO Решение: создать обратный маппинг от функций к переменным, чтобы находить какие локальные переменные есть у функции
+// Статические переменные находятся по лейблу
+// TODO Глобальные переменные находятся по лейблу. Если она объявлена в данном файле, нужно сделать её публичной. Если нет, нужно добавить extern
+// + Какие есть переменные?
+// Локальные переменнные. Локальные для функции
+// Параметры. Локальные для функции
+// Глобальные (data public extern). Метка и public/extern
+// Статические (data private). Метка и private. Локальная для файла
+// + Как узнать, какие локальные переменные создаются в функции?
+// Пройтись по операторам присваивания и собрать символы результатов
+// Или хранить место расположения символов при добавлении
+// + А какие бывают места расположения переменных?
+// Локальная переменная функции (имя функции)
+// Параметр функции (имя функции)
+// Глобальная переменная программы
+// Статическая переменная файла, в котором находится функция (программа - файлы - функции и переменные каждого файла)
+// + А что лучше: пройтись по операторам или добавлять место символа при построении АСТ?
+// АСТ
+// + А куда добавлять символ при построении аст?
+// В таблицу символов
+// TODO Решение: добавить расположение символа
+
+
+// TODO Задача: Создать МАСМ таблицу символов. Она должна поддерживать конвенции (параметры, возвращаемые значения) и регистровые локации. В будущем и динамические аллокации для VLA
+
+// Проблемы:
+// Я перехожу к имплементации других конвенций функций. Текущая имплементация таблицы символов не поддерживает указание регистров в качестве локации, что требуется для stdcall
+
+// Решения:
+//
+
+
+
+// Что нам нужно теперь?
+// Выполнять задания
+// Как понять, что всё заработает?
+// Протестировать каждое нововведение. Это можно сделать прямо во время рефакторинга или сделать таблицу прецедентов
+
+
+
+// You have a task, lil buddy
+// See all these symbols in GlobalSymbolTable?
+// They all need to know where they live in the MASM world (memory, static, extern, register)
+
+// + Investigate scope in assembly (different functions+, files+, extern+, ...)
+// Decide how to represent symbols. When we are in a function, we know only some data like parameters. Also, we have symbols in TAC statements. But how to get static and extern symbols?
+// Also from statements, silly bunni
+
+// For static, different scopes will go. But we will need to address them somehow. UDP and we don't even fucking need scopes
+// For extern... Alright, you know, all of them are symbols.
+// We just need a mapping from symbolId to MASM symbol and its locations UPD: exactly
+
+// Another problem is linking. How do we know when we export variables and when not?
+// From the top level. We declare static variables and extern. When do we check if they exist? I bet, never, because it depends on linker objs and libraries.
+
+
+
+
+// Symbols for WinAPI parameters. Do we need to ... Wait, we do not allocate space. We just store where they are.
+// But they aren't for now... They are when... Alright, that's just parameters. But inside function they become something
+// When do we create them? From the beginning, I bet
+
+// Where do we even use them? Use cases
+// Compile: TranslateInstruction
+// Call (place into parameters. But here address is relative to inner rbp. Pushing is different. But we don't care maybe)
+// Assign (only inside function, after taking a certain function)
+// Return ()
+
+// TODO we need function allocation size. Probably can calculate it in place
 
 public class MasmGenerator {
   // Maps variable names to their types and stack offsets
-  public static class SymbolTable {
-    private final Map<String, TAC.Type> types = new HashMap<>();
-    private final Map<String, Integer> offsets = new HashMap<>();
-    private int currentOffset = 0;
+//  public static class SymbolTable {
+//    private final Map<String, DataType> types = new HashMap<>();
+//    private final Map<String, Integer> offsets = new HashMap<>();
+//    private int currentOffset = 0;
+//
+//    // Allocate space on the stack for a new variable
+//    public int addVariable(String name, DataType type) {
+//      types.put(name, type);
+//      // Align stack to the size of the type, minimum 4 bytes
+//      int allocationSize = Math.max(8, type.size());
+//      currentOffset += allocationSize;
+//      offsets.put(name, currentOffset);
+//      return currentOffset;
+//    }
+//
+//    public void AddSeparateVariable(String name, DataType type, int offset) {
+//      types.put(name, type);
+//      offsets.put(name, offset);
+//    }
+//
+//    public DataType getType(String name) {
+//      return Objects.requireNonNull(types.get(name), "Variable not defined: " + name);
+//    }
+//
+//    public int getOffset(String name) {
+//      return Objects.requireNonNull(offsets.get(name), "Variable not defined: " + name);
+//    }
+//
+//    public int getTotalAllocationSize() {
+//      return currentOffset;
+//    }
+//
+//    public TAC.OffsetMemory GetMemoryOperand(String name) {
+//      var type = types.get(name);
+//      var offset = offsets.get(name);
+//      return new TAC.OffsetMemory(type.size(), TAC.Register.RBP, null, 0, -offset);
+//    }
+//  }
 
-    // Allocate space on the stack for a new variable
-    public int addVariable(String name, TAC.Type type) {
-      types.put(name, type);
-      // Align stack to the size of the type, minimum 4 bytes
-      int allocationSize = Math.max(8, type.size().size);
-      currentOffset += allocationSize;
-      offsets.put(name, currentOffset);
-      return currentOffset;
-    }
+  public GlobalSymbolTable globalTable;
+  public MasmSymbolTable masmTable;
+  public TranslationUnit currentUnit;
+  public Function currentFunction;
+  public Program currentProgram;
 
-    public void AddSeparateVariable(String name, TAC.Type type, int offset) {
-      types.put(name, type);
-      offsets.put(name, offset);
-    }
-
-    public TAC.Type getType(String name) {
-      return Objects.requireNonNull(types.get(name), "Variable not defined: " + name);
-    }
-
-    public int getOffset(String name) {
-      return Objects.requireNonNull(offsets.get(name), "Variable not defined: " + name);
-    }
-
-    public int getTotalAllocationSize() {
-      return currentOffset;
-    }
-
-    public TAC.OffsetMemory GetMemoryOperand(String name) {
-      var type = types.get(name);
-      var offset = offsets.get(name);
-      return new TAC.OffsetMemory(type.size(), TAC.Register.RBP, null, 0, -offset);
-    }
-  }
-
-  public FunctionFrame currentFrame;
-  public Program program;
-  public SymbolTable symbolTable;
   public final StringBuilder code = new StringBuilder();
   public int labelCounter = 0;
-
-  public String GenLabel() {
-    return "L" + (labelCounter++);
-  }
 
   public void Append(String format, Object... args) {
     code.append(String.format(format, args)).append("\n");
@@ -60,124 +192,159 @@ public class MasmGenerator {
 
   // Helpers
 
-  private String MoveToRegister(TAC.Register dst, TAC.Operand src) {
+  // TODO move to codegen probably
+  private String MoveToRegister(MASM.Register dst, TAC.Operand src) {
     return switch (src) {
       case TAC.Constant constant -> Codegen.MoveToRegister(dst, constant);
-      case TAC.Variable variable -> {
-        var type = symbolTable.getType(variable.name());
-        var memory = symbolTable.GetMemoryOperand(variable.name());
-        yield Codegen.MoveToRegister(dst, memory, type.isSigned());
+      case TAC.Symbol symbol -> {
+        var entry = globalTable.GetSymbol(symbol.symbolId());
+        var location = masmTable.GetSymbolLocation(symbol.symbolId());
+
+        yield switch (location) {
+        case MASM.Memory memory -> Codegen.MoveToRegister(dst, memory, entry.type().type() == DataType.Type.SIGNED);
+        case MASM.Register register -> Codegen.MoveToRegister(dst, register, entry.type().type() == DataType.Type.SIGNED);
+        default -> throw new IllegalStateException("Immediate values are broken at the moment");
+        };
       }
-      default -> throw new IllegalStateException("Unsupported operand: " + src);
     };
   }
 
-  // Not helpers
-
-  public String Generate(Program program) {
-    this.program = program;
-
-    // Generate sections
-    Append(".data");
-    Append(".code");
-
-    // - Generate epilogue
-
-    for (var function : program.GetFunctions()) {
-      // - Init values
-      currentFrame = function;
-      symbolTable = new SymbolTable();
-      labelCounter = 0;
-
-      // - Generate PROC
-      Append(function.GetDeclaration().name() + " proc");
-
-      // - Generate frame
-      Append("    push    rbp");
-      Append("    mov     rbp, rsp");
-
-      // - Spilt register parameters into stack, if appropriate. Add variables to the symbol table
-      int paramId = 0;
-      for (var parameter : function.GetDeclaration().parameters()) {
-        // -8 return
-        // -16 param1
-        symbolTable.AddSeparateVariable(parameter.name(), parameter.type(), -16 - paramId * 8);
-        ++paramId;
+  // TODO new function
+  /// isSigned is used for promotion if one is supposed to happen
+  private void MoveToLocation(MASM.Location dst, MASM.Operand src, boolean isSigned) {
+    switch (src) {
+      // From immediate
+      case MASM.Immediate immediate -> {
+        switch (dst) {
+          case MASM.Memory memory -> {
+            // The problem is, we don't know what registers we can use at the moment. rax may be filled with something
+            // The planning should be beforehand, but tac is not enough for that
+            // TODO Compound: to register and to memory, because "mov r/m64, imm32"
+            // TODO For such kind of shenanigans we need to operate with register allocator
+            throw new IllegalStateException("Immediate to memory move not implemented yet");
+          }
+          case MASM.Register register -> Append(Codegen.MoveToRegister(register, immediate));
+        }
       }
-
-      // - Allocate stack memory
-      buildSymbolTable(function.GetInstructions());
-      Append("    sub     rsp, %d", symbolTable.getTotalAllocationSize());
-
-      // - Generate code
-
-      for (TAC.Instruction instruction : function.GetInstructions()) {
-        translateInstruction(instruction);
+      // From register
+      case MASM.Register register -> {
+        switch (dst) {
+          case MASM.Memory memory -> Append(Codegen.MoveToMemory(memory, register));
+          case MASM.Register dstRegister -> Append(Codegen.MoveToRegister(dstRegister, register, isSigned));
+        }
       }
+      // From memory
+      case MASM.Memory memory -> {
+        switch (dst) {
+          case MASM.Memory dstMemory -> {
+            // TODO m -> r -> m
+            // TODO For such kind of shenanigans we need to operate with register allocator
+            throw new IllegalStateException("Memory to memory move not implemented yet");
+          }
+          case MASM.Register register -> Append(Codegen.MoveToRegister(register, memory, isSigned));
+        }
+      }
+    }
+  }
 
-      // - Generate ENDP
-      Append(function.GetDeclaration().name() + " endp");
+
+  // Not helpers (problems creaters)
+
+
+  // For now it'll just tell how much we need
+  class AllocationManager {
+    private int reservedSpace;
+
+    public AllocationManager() {
+
     }
 
-    // Generate end
-    Append("end");
+    public void ReserveStack(int size) {
+      reservedSpace += size;
+    }
+
+    public int GetReservedSpace() {
+      return reservedSpace;
+    }
+  }
+
+  public String Generate(Program program, GlobalSymbolTable symbolTable) {
+    currentProgram = program;
+    globalTable = symbolTable;
+    masmTable = new MasmSymbolTable(program);
+
+    // TODO refactor pretty printing
+
+    // TODO Build MASM symbol table
+
+    // TODO Generate code for every output file. Generate different files
+    for (var unit : program.GetTranslationUnits()) {
+      currentUnit = unit;
+
+      // Generate data
+      Append(".data");
+
+      // TODO generate imports, globals, statics
+      // TODO extern functions
+
+      // Generate code
+      Append(".code");
+
+      for (var function : unit.GetFunctions()) {
+        currentFunction = function;
+
+        // TODO function may be private
+        // Declaration
+        Append(function.GetDeclaration().name() + " proc");
+
+        // Allocate memory for locals
+        AllocationManager allocManager = new AllocationManager();
+        for (var symbol : function.GetLocalSymbols()) {
+          // TODO that's a bit weird that we map it like that
+          var masmType = MASM.Type.FromSize(symbol.type().size());
+          allocManager.ReserveStack(masmType.size);
+        }
+
+        // Prologue (convention dependant)
+        switch (function.GetDeclaration().convention()) {
+        case STACKCALL -> GeneratePrologueStackCall(function, allocManager);
+        default -> throw new IllegalStateException("Unexpected value: " + function.GetDeclaration().convention());
+        }
+
+        // Generate code
+        for (var instruction : function.GetInstructions()) {
+          translateInstruction(instruction);
+        }
+
+        // End
+        Append(function.GetDeclaration().name() + " endp");
+      }
+
+      // Generate end
+      Append("end");
+    }
 
     return code.toString();
   }
 
+  public void GeneratePrologueStackCall(Function function, AllocationManager allocManager) {
+    // TODO this will be useful for stdcall
+//    for (var symbol : function.GetDeclaration().parameters()) {
+//    }
 
-
-  public String generate(TAC.Program program) {
-    // First pass: build the symbol table to know all variables and required stack space
-    buildSymbolTable(program.instructions());
-
-    // Boilerplate MASM setup
-    Append(".data");
-    Append(".code");
-    Append("main PROC");
-
-    // Function Prolog: Set up stack frame
     Append("    push    rbp");
     Append("    mov     rbp, rsp");
-    Append("    sub     rsp, %d", symbolTable.getTotalAllocationSize());
-
-    // Second pass: generate code for each instruction
-    for (TAC.Instruction instruction : program.instructions()) {
-      translateInstruction(instruction);
-    }
-
-    // Function Epilog: Restore stack and return
-//    append("    add     rsp, %d", symbolTable.getTotalAllocationSize());
-//    append("    pop     rbp");
-//    append("    mov     rax, 0  ; Return 0");
-//    append("    ret");
-    Append("main ENDP");
-    Append("END");
-
-    return code.toString();
-  }
-
-  private void buildSymbolTable(List<TAC.Instruction> instructions) {
-    for (TAC.Instruction instruction : instructions) {
-      if (instruction instanceof TAC.Assignment(var result, _)) {
-        TAC.Type type = determineType(result, instruction);
-        symbolTable.addVariable(result.name(), type);
-      } else if (instruction instanceof TAC.BinaryOperation(var result, _, _, _)) {
-        TAC.Type type = determineType(result, instruction);
-        symbolTable.addVariable(result.name(), type);
-      }
-    }
+    Append("    sub     rsp, " + allocManager.GetReservedSpace());
   }
 
   private void translateInstruction(TAC.Instruction instruction) {
-// Add a small helper to not print "TACI$..." for cleaner comments
+    // TODO Add a small helper to not print "TACI$..." for cleaner comments
     String instructionString = instruction.toString()
       .replaceAll("TACI\\$[A-Za-z]+", "")
       .replaceAll("records\\.", "");
 
     Append("\n    ; TAC: %s", instructionString);
 
-    // UPDATED with new cases
     switch (instruction) {
     case TAC.Assignment a -> translateAssignment(a);
     case TAC.BinaryOperation b -> translateBinaryOperation(b);
@@ -191,9 +358,10 @@ public class MasmGenerator {
 
   private void translateCall(TAC.Call code) {
     // return n [arr]
-    // nah no way bro, how we gonna know how much we need to take? Theres a way, reverse parameters, get n, but wtf even is that
+    // TODO nah no way bro, how we gonna know how much we need to take? Theres a way, reverse parameters, get n, but wtf even is that
 
-    // TODO Depending on the convention
+    // TODO ??
+    // TODO check stack size. We were pushing 64 every time. Smart or dumb
     // Let's stop on i64 u64 for now.
 
     // TODO one of the problems: on the top level we do not work with registers. Registers are allocated. We work with either constants either variables
@@ -204,51 +372,41 @@ public class MasmGenerator {
     int[] paramSizes = new int[code.params().length];
     int[] returnSizes = new int[code.returnVariables().length];
 
+    // TODO Can I somehow extract this code?
+    // TODO conventions
     // Calculate params size
-    for (int i = 0; i < paramSizes.length; ++i) {
+    for (int i = 0; i < code.params().length; ++i) {
       var param = code.params()[i];
+      int paramSize = GetOperandMasmType(param).size;
 
-      switch (param) {
-        case TAC.Constant (String value, TAC.Type type) -> {
-          paramsSize += type.size().size;
-          paramSizes[i] = type.size().size;
-        }
-        case TAC.Variable (String name) -> {
-          paramsSize += symbolTable.getType(name).size().size;
-          paramSizes[i] = symbolTable.getType(name).size().size;
-        }
-        case TAC.Register register -> {
-          paramsSize += register.size().size;
-          paramSizes[i] = register.size().size;
-        }
-      default -> throw new IllegalStateException("Unexpected value: " + param);
-      }
+      paramsSize += paramSize;
+      paramSizes[i] = paramSize;
     }
 
-    // Calculate return values sizes
+    // Calculate return values size
     for (int i = 0; i < code.returnVariables().length; ++i) {
       var retVal = code.returnVariables()[i];
-      // TODO if it is 0, we need to find function declaration, get type and use it as size
 
+      // If it is '_', we need to find function declaration, get type and use it as size
       if (retVal == null) {
-        for (var function : program.GetFunctions()) {
-          if (function.GetDeclaration().name().equals(code.name())) {
-            returnSize += function.GetDeclaration().returnTypes()[i].size().size;
-            returnSizes[i] = function.GetDeclaration().returnTypes()[i].size().size;
-          }
+        var declaration = currentUnit.GetFunctionDeclaration(code.name());
+        for (var type : declaration.returnTypes()) {
+          returnSize += type.size();
+          returnSizes[i] = type.size();
         }
 
         continue;
       }
 
-      returnSize += symbolTable.getType(retVal.name()).size().size;
-      returnSizes[i] = symbolTable.getType(retVal.name()).size().size;
+      var masmType = GetOperandMasmType(retVal);
+      returnSize += masmType.size;
+      returnSizes[i] = masmType.size;
     }
 
     // Reserve space for return values and parameters
     Append("    ; Reserving space and moving parameters");
     if (returnSize + paramsSize != 0) {
-      Append("    sub rsp, " + (returnSize + paramsSize));
+      Append("    sub      rsp, " + (returnSize + paramsSize));
     }
 
     // Move parameters
@@ -258,21 +416,19 @@ public class MasmGenerator {
 
       switch (param) {
       case TAC.Constant constant -> {
-        var reg = TAC.Register.GetRegister(TAC.Register.Type.RAX, constant.type().size());
+        var masmType = MASM.Type.FromSize(constant.type().size());
+        var reg = MASM.Register.GetRegister(MASM.Register.Type.RAX, masmType);
         Append(Codegen.MoveToRegister(reg, constant));
-        Append(Codegen.MoveToMemory(new TAC.OffsetMemory(constant.type().size(), TAC.Register.RSP, null, 0, offset), reg));
+        Append(Codegen.MoveToMemory(new MASM.OffsetMemory(masmType, MASM.Register.RSP, null, 0, offset), reg));
       }
-      case TAC.Variable (String name) -> {
-        var reg = TAC.Register.GetRegister(TAC.Register.Type.RAX, symbolTable.getType(name).size());
-        Append(Codegen.MoveToRegister(reg, symbolTable.GetMemoryOperand(name), false));
-        Append(Codegen.MoveToMemory(new TAC.OffsetMemory(symbolTable.getType(name).size(), TAC.Register.RSP, null, 0, offset), reg));
+      case TAC.Symbol symbol -> {
+        var masmType = GetOperandMasmType(symbol);
+        var reg = MASM.Register.GetRegister(MASM.Register.Type.RAX, masmType);
+        masmTable.GetSymbolLocation(symbol.symbolId());
+        // TODO just use corresponding size, stfu
+        Append(MoveToRegister(reg, symbol));
+        Append(Codegen.MoveToMemory(new MASM.OffsetMemory(masmType, MASM.Register.RSP, null, 0, offset), reg));
       }
-      case TAC.Register register -> {
-        var reg = TAC.Register.GetRegister(TAC.Register.Type.RAX, register.size());
-        Append(Codegen.MoveToRegister(reg, register, false));
-        Append(Codegen.MoveToMemory(new TAC.OffsetMemory(register.size(), TAC.Register.RSP, null, 0, offset), reg));
-      }
-      default -> throw new IllegalStateException("Unexpected value: " + param);
       }
 
       offset += paramSizes[i];
@@ -289,19 +445,27 @@ public class MasmGenerator {
     offset = paramsSize;
     for (int i = 0; i < code.returnVariables().length; ++i) {
       var retVal = code.returnVariables()[i];
+      // Skip '_' variables
       if (retVal == null) {
-        // ignore
         offset += returnSizes[i];
         continue;
       }
 
-      var reg = TAC.Register.GetRegister(TAC.Register.Type.RAX, symbolTable.getType(retVal.name()).size());
+      var dataType = globalTable.GetSymbol(retVal.symbolId()).type();
+      var masmType = GetOperandMasmType(retVal);
+      var masmLocation = masmTable.GetSymbolLocation(retVal.symbolId());
+      var reg = MASM.Register.GetRegister(MASM.Register.Type.RAX, masmType);
 
       // Move from memory to rax
-      Append(Codegen.MoveToRegister(reg, new TAC.OffsetMemory(symbolTable.getType(retVal.name()).size(), TAC.Register.RSP, null, 0, offset), false));
+      Append(Codegen.MoveToRegister(reg, new MASM.OffsetMemory(masmType, MASM.Register.RSP, null, 0, offset), false));
 
       // Move from rax to var memory
-      Append(Codegen.MoveToMemory(symbolTable.GetMemoryOperand(retVal.name()), reg));
+      switch (masmLocation) {
+      case MASM.Memory memory -> Append(Codegen.MoveToMemory(memory, reg));
+      case MASM.Register register -> Append(Codegen.MoveToRegister(register, reg, dataType.type() == DataType.Type.SIGNED));
+      // TODO if it fucking can't you need to fucking create another interface
+      default -> throw new IllegalStateException("Location can't be immediate");
+      }
 
       offset += returnSizes[i];
     }
@@ -316,51 +480,35 @@ public class MasmGenerator {
   private static int GetFunctionParametersSize(FunctionDeclaration func) {
     int size = 0;
     for (var param : func.parameters()) {
-      size += param.type().size().size;
+      size += param.type().size();
     }
 
     return size;
   }
 
   private void translateReturn(TAC.Return code) {
-    // TODO Depending on the convention
-
-    // TODO
-    // Move return values to the reserved space
-    // Restore frame
-    // Call ret
-    // TODO only variables or immediate. Symbol table must know low level location (imm, register, memory)
-
+    // TODO ???
     // So, bruh, we need to get current function frame,
     // And we can precalculate that. But... it depends on conventions
 
-    int paramsSize = GetFunctionParametersSize(currentFrame.GetDeclaration());
+    // Calculate offsets
+    int paramsSize = GetFunctionParametersSize(currentFunction.GetDeclaration());
     int offset = 16 + paramsSize;
 
+    // TODO conventions
+    // Move return values to the appropriate places
     Append("    ; Moving return values");
     for (int i = 0; i < code.operands().length; ++i) {
       var operand = code.operands()[i];
-      int operandSize = switch (operand) {
-        case TAC.Constant (String value, TAC.Type type) -> operandSize = type.size().size;
-        case TAC.Variable (String name) -> operandSize = symbolTable.getType(name).size().size;
-        default -> throw new IllegalStateException("Unexpected value: " + operand);
-      };
-
-      // From where? Depending on the return operand. For now, it can be either constant either variable
-      // Move to the corresponding memory location
-
-      // Load return value into rax
-      switch (operand) {
-      case TAC.Constant _, TAC.Variable _ -> {}
-      default -> throw new IllegalStateException("Unexpected value: " + operand);
-      }
+      int operandSize = GetOperandMasmType(operand).size;
 
       // TODO need a function to move into a register of corresponding size. Need to return the register
-      var reg = TAC.Register.GetRegister(TAC.Register.Type.RAX, TAC.Size.GetSize(operandSize));
+      // Load return value into rax
+      var reg = MASM.Register.GetRegister(MASM.Register.Type.RAX, MASM.Type.FromSize(operandSize));
       Append(MoveToRegister(reg, operand));
 
       // Move rax to parameter memory location
-      Append(Codegen.MoveToMemory(new TAC.OffsetMemory(TAC.Size.GetSize(operandSize), TAC.Register.RBP, null, 0, offset), reg));
+      Append(Codegen.MoveToMemory(new MASM.OffsetMemory(MASM.Type.FromSize(operandSize), MASM.Register.RBP, null, 0, offset), reg));
 
       offset += operandSize;
     }
@@ -372,14 +520,30 @@ public class MasmGenerator {
     Append("    ret");
   }
 
+  // TODO this is fucked. Every high level operand must have a type.. Ahhh, symbols. Alright, alrght
+  // Helper to find an operand's type, needed for ConditionalJump
+  private DataType GetOperandType(TAC.Operand operand) {
+    return switch (operand) {
+      case TAC.Constant constant -> constant.type();
+      case TAC.Symbol symbol -> globalTable.GetSymbol(symbol.symbolId()).type();
+    };
+  }
+
+  private MASM.Type GetOperandMasmType(TAC.Operand operand) {
+    return switch (operand) {
+      case TAC.Constant constant -> MASM.Type.FromSize(constant.type().size());
+      case TAC.Symbol symbol -> MASM.Type.FromSize(GetOperandType(symbol).size());
+    };
+  }
+
   private void translateConditionalJump(TAC.ConditionalJump cj) {
     // Assume comparison is between same-sized types for simplicity
     // TODO yeah, yeah, different sign, different size. We must have some uncomparable units. u64 and i64. Need upcast if signs differ
-    TAC.Type opType = determineOperandType(cj.arg1());
+    var opType = GetOperandMasmType(cj.arg1());
 
     // 1. Load operands into registers
-    var rax = TAC.Register.GetRegister(TAC.Register.Type.RAX, opType.size());
-    var rcx = TAC.Register.GetRegister(TAC.Register.Type.RCX, opType.size());
+    var rax = MASM.Register.GetRegister(MASM.Register.Type.RAX, opType);
+    var rcx = MASM.Register.GetRegister(MASM.Register.Type.RCX, opType);
 
     Append(MoveToRegister(rax, cj.arg1()));
     Append(MoveToRegister(rcx, cj.arg2()));
@@ -403,53 +567,52 @@ public class MasmGenerator {
     Append("    %s     %s", jumpInstruction, cj.targetLabel());
   }
 
-  // Helper to find an operand's type, needed for ConditionalJump
-  private TAC.Type determineOperandType(TAC.Operand operand) {
-    if (operand instanceof TAC.Constant c) {
-      return c.type();
-    } else if (operand instanceof TAC.Variable v) {
-      return symbolTable.getType(v.name());
-    }
-    throw new IllegalArgumentException("Unknown operand type");
-  }
-
   private void translateAssignment(TAC.Assignment assignment) {
-    TAC.Type resultType = symbolTable.getType(assignment.result().name());
+    var dataType = globalTable.GetSymbol(assignment.result().symbolId()).type();
+    var masmType = GetOperandMasmType(assignment.result());
+    var resultLocation = masmTable.GetSymbolLocation(assignment.result().symbolId());
 
+    // TODO replace appends with function calls
     // From anywhere to RAX
-    Append(MoveToRegister(TAC.Register.GetRegister(TAC.Register.Type.RAX, resultType.size()), assignment.source()));
+    Append(MoveToRegister(MASM.Register.GetRegister(MASM.Register.Type.RAX, masmType), assignment.source()));
 
     // From RAX to memory
-    Append(Codegen.MoveToMemory(symbolTable.GetMemoryOperand(assignment.result().name()), TAC.Register.GetRegister(TAC.Register.Type.RAX, resultType.size())));
+    // TODO aha, now we don't know where to move it
+    MoveToLocation(resultLocation, MASM.Register.GetRegister(MASM.Register.Type.RAX, masmType), dataType.type() == DataType.Type.SIGNED);
   }
 
   private void translateBinaryOperation(TAC.BinaryOperation op) {
-    TAC.Type resultType = symbolTable.getType(op.result().name());
+    DataType resultType = globalTable.GetSymbol(op.result().symbolId()).type();
+    var masmLocation = masmTable.GetSymbolLocation(op.result().symbolId());
+    var masmType = MASM.Type.FromSize(resultType.size());
+
+    // TODO for now we assume that types are of correct size
 
     // 1. Load arg1 into RAX
-    Append(MoveToRegister(TAC.Register.GetRegister(TAC.Register.Type.RAX, resultType.size()), op.arg1()));
+    Append(MoveToRegister(MASM.Register.GetRegister(MASM.Register.Type.RAX, masmType), op.arg1()));
 
     // 2. Load arg2 into RCX
-    Append(MoveToRegister(TAC.Register.GetRegister(TAC.Register.Type.RCX, resultType.size()), op.arg2()));
+    Append(MoveToRegister(MASM.Register.GetRegister(MASM.Register.Type.RCX, masmType), op.arg2()));
 
-    String regA = TAC.Register.GetRegister(TAC.Register.Type.RAX, resultType.size()).name();
-    String regC = TAC.Register.GetRegister(TAC.Register.Type.RCX, resultType.size()).name();
+    var regA = MASM.Register.GetRegister(MASM.Register.Type.RAX, masmType);
+    var regC = MASM.Register.GetRegister(MASM.Register.Type.RCX, masmType);
 
     // 3. Perform the operation
     switch (op.op()) {
-    case ADD -> Append("    add     %s, %s", regA, regC);
-    case SUB -> Append("    sub     %s, %s", regA, regC);
+    case ADD -> Append("    add     %s, %s", regA.name(), regC.name());
+    case SUB -> Append("    sub     %s, %s", regA.name(), regC.name());
     case MUL -> {
-      if (resultType.isSigned()) {
-        Append("    imul    %s, %s", regA, regC);
+      if (resultType.type() == DataType.Type.SIGNED) {
+        Append("    imul    %s, %s", regA.name(), regC.name());
       } else {
-        Append("    mul     %s", regC); // result in RDX:RAX
+        Append("    mul     %s", regC.name()); // result in RDX:RAX
       }
     }
     case DIV, MOD -> {
+      // TODO this is fucked. Location can be anything, but we try to extend register. Maybe not, but look at this
       // Dividend is already in RAX. Prepare RDX.
-      if (resultType.isSigned()) {
-        switch (resultType.size()) { // Sign-extend RAX into RDX
+      if (resultType.type() == DataType.Type.SIGNED) {
+        switch (masmType) { // Sign-extend RAX into RDX
         case QWORD -> Append("    cqo");
         case DWORD -> Append("    cdq");
         case WORD -> Append("    cwd");
@@ -459,37 +622,22 @@ public class MasmGenerator {
         Append("    xor     rdx, rdx  ; Clear RDX for unsigned division");
       }
 
-      if (resultType.isSigned()) {
-        Append("    idiv    %s", regC);
+      if (resultType.type() == DataType.Type.SIGNED) {
+        Append("    idiv    %s", regC.name());
       } else {
-        Append("    div     %s", regC);
+        Append("    div     %s", regC.name());
       }
 
       if (op.op() == TAC.Op.MOD) {
         // Remainder is in RDX, move it to RAX for storing
-        String regD = TAC.Register.GetRegister(TAC.Register.Type.RDX, resultType.size()).name();
+        String regD = MASM.Register.GetRegister(MASM.Register.Type.RDX, masmType).name();
         Append("    mov     %s, %s", regA, regD);
       }
     }
     }
 
+    // TODO yeah, memory. It needs to be in memory. OR from anywhere to memory
     // 4. Store the result from RAX back to the variable's stack location
-    Append(Codegen.MoveToMemory(symbolTable.GetMemoryOperand(op.result().name()), TAC.Register.GetRegister(TAC.Register.Type.RAX, resultType.size())));
-  }
-
-  // Helper Methods
-  private TAC.Type determineType(TAC.Variable var, TAC.Instruction ctx) {
-    // A real compiler would have a more robust type inference system.
-    // Here, we infer the type from the context of the operation.
-    if (ctx instanceof TAC.Assignment(_, var source)) {
-      if (source instanceof TAC.Constant c) return c.type();
-      if (source instanceof TAC.Variable v) return symbolTable.getType(v.name());
-    } else if (ctx instanceof TAC.BinaryOperation(_, var arg1, _, var arg2)) {
-      TAC.Type t1 = (arg1 instanceof TAC.Constant c) ? c.type() : symbolTable.getType(((TAC.Variable)arg1).name());
-      TAC.Type t2 = (arg2 instanceof TAC.Constant c) ? c.type() : symbolTable.getType(((TAC.Variable)arg2).name());
-      // Promote to the larger type
-      return t1.size().size >= t2.size().size ? t1 : t2;
-    }
-    throw new IllegalStateException("Cannot determine type for " + var.name());
+    MoveToLocation(masmLocation, regA, resultType.type() == DataType.Type.SIGNED);
   }
 }
