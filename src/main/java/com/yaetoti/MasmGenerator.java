@@ -99,17 +99,18 @@ public class MasmGenerator {
 
     // TODO refactor pretty printing
 
-    // TODO Build MASM symbol table
-
     // TODO Generate code for every output file. Generate different files
     for (var unit : program.GetTranslationUnits()) {
       currentUnit = unit;
 
+      // TODO generate imports, globals, statics
+
+      for (var extern : unit.GetFunctionImports()) {
+        Append("extern " + extern.name() + ": proc");
+      }
+
       // Generate data
       Append(".data");
-
-      // TODO generate imports, globals, statics
-      // TODO extern functions
 
       // Generate code
       Append(".code");
@@ -181,14 +182,76 @@ public class MasmGenerator {
   }
 
   private void translateCall(TAC.Call code) {
+    var declaration = currentUnit.GetFunctionDeclaration(code.name());
+    switch (declaration.convention()) {
+      case STACKCALL -> translateCallStackCall(code, declaration);
+      case MS_ABI -> translateCallMSABI(code, declaration);
+    }
+  }
+
+  private void translateCallMSABI(TAC.Call code, FunctionDeclaration declaration) {
+    final int SHADOW_SPACE = 32;
+    final MASM.Register[] intArgRegisters = { MASM.Register.RCX, MASM.Register.RDX, MASM.Register.R8, MASM.Register.R9 };
+
+    TAC.Operand[] params = code.params();
+    int registerArgCount = Math.min(params.length, intArgRegisters.length);
+    int stackArgCount = Math.max(0, params.length - intArgRegisters.length);
+
+    // Each stack argument takes 8 bytes + 32 bytes for shadow space
+    int stackSpaceToAllocate = stackArgCount * 8 + SHADOW_SPACE;
+
+    // Allocate stack space for stack arguments and shadow space
+    if (stackSpaceToAllocate > 0) {
+      Append("    sub     rsp, %d", stackSpaceToAllocate);
+    }
+
+    // Move stack arguments (5th onwards)
+    // They are pushed right-to-left, which means the 5th param is at the lowest address
+    // rsp + 32, rsp + 40, etc.
+    for (int i = registerArgCount; i < params.length; i++) {
+      var param = params[i];
+      var masmType = GetOperandMasmType(param);
+      int stackOffset = SHADOW_SPACE + (i - registerArgCount) * 8;
+
+      Append(MoveToRegister(MASM.Register.RAX, param));
+      Append(Codegen.MoveToMemory(new MASM.OffsetMemory(masmType, MASM.Register.RSP, null, 0, stackOffset), MASM.Register.RAX));
+    }
+
+    // Move register arguments (1st to 4th)
+    for (int i = 0; i < registerArgCount; i++) {
+      var param = params[i];
+      Append(MoveToRegister(intArgRegisters[i], param));
+    }
+
+    // Call the function
+    Append("    ; MS ABI x64");
+    Append("    call    %s", code.name());
+
+    // Deallocate stack space
+    if (stackSpaceToAllocate > 0) {
+      Append("    add     rsp, %d", stackSpaceToAllocate);
+    }
+
+    // Store return value from RAX if one is expected
+    if (code.returnVariables().length > 0) {
+      // MS ABI returns the first integer/pointer return value in RAX.
+      // This example only handles the first return value.
+      var retVar = code.returnVariables()[0];
+      if (retVar != null) {
+        var dataType = globalTable.GetSymbol(retVar.symbolId()).type();
+        var masmType = GetOperandMasmType(retVar);
+        var resultLocation = masmTable.GetSymbolLocation(retVar.symbolId());
+        var rax = MASM.Register.GetRegister(MASM.Register.Type.RAX, masmType);
+
+        MoveToLocation(resultLocation, rax, dataType.type() == DataType.Type.SIGNED);
+      }
+    }
+  }
+
+  private void translateCallStackCall(TAC.Call code, FunctionDeclaration declaration) {
     // return n [arr]
     // TODO nah no way bro, how we gonna know how much we need to take? Theres a way, reverse parameters, get n, but wtf even is that
-
-    // TODO ??
     // TODO check stack size. We were pushing 64 every time. Smart or dumb
-    // Let's stop on i64 u64 for now.
-
-    // TODO one of the problems: on the top level we do not work with registers. Registers are allocated. We work with either constants either variables
 
     // Calculate sizes
     int returnSize = 0;
@@ -197,7 +260,6 @@ public class MasmGenerator {
     int[] returnSizes = new int[code.returnVariables().length];
 
     // TODO Can I somehow extract this code?
-    // TODO conventions
     // Calculate params size
     for (int i = 0; i < code.params().length; ++i) {
       var param = code.params()[i];
@@ -213,7 +275,6 @@ public class MasmGenerator {
 
       // If it is '_', we need to find function declaration, get type and use it as size
       if (retVal == null) {
-        var declaration = currentUnit.GetFunctionDeclaration(code.name());
         for (var type : declaration.returnTypes()) {
           returnSize += type.size();
           returnSizes[i] = type.size();
@@ -239,27 +300,27 @@ public class MasmGenerator {
       var param = code.params()[i];
 
       switch (param) {
-      case TAC.Constant constant -> {
-        var masmType = MASM.Type.FromSize(constant.type().size());
-        var reg = MASM.Register.GetRegister(MASM.Register.Type.RAX, masmType);
-        Append(Codegen.MoveToRegister(reg, constant));
-        Append(Codegen.MoveToMemory(new MASM.OffsetMemory(masmType, MASM.Register.RSP, null, 0, offset), reg));
-      }
-      case TAC.Symbol symbol -> {
-        var masmType = GetOperandMasmType(symbol);
-        var reg = MASM.Register.GetRegister(MASM.Register.Type.RAX, masmType);
-        masmTable.GetSymbolLocation(symbol.symbolId());
-        // TODO just use corresponding size, stfu
-        Append(MoveToRegister(reg, symbol));
-        Append(Codegen.MoveToMemory(new MASM.OffsetMemory(masmType, MASM.Register.RSP, null, 0, offset), reg));
-      }
+        case TAC.Constant constant -> {
+          var masmType = MASM.Type.FromSize(constant.type().size());
+          var reg = MASM.Register.GetRegister(MASM.Register.Type.RAX, masmType);
+          Append(Codegen.MoveToRegister(reg, constant));
+          Append(Codegen.MoveToMemory(new MASM.OffsetMemory(masmType, MASM.Register.RSP, null, 0, offset), reg));
+        }
+        case TAC.Symbol symbol -> {
+          var masmType = GetOperandMasmType(symbol);
+          var reg = MASM.Register.GetRegister(MASM.Register.Type.RAX, masmType);
+          masmTable.GetSymbolLocation(symbol.symbolId());
+          // TODO just use corresponding size, stfu
+          Append(MoveToRegister(reg, symbol));
+          Append(Codegen.MoveToMemory(new MASM.OffsetMemory(masmType, MASM.Register.RSP, null, 0, offset), reg));
+        }
       }
 
       offset += paramSizes[i];
     }
 
     // Call
-    Append("    ; Calling function");
+    Append("    ; stackcall");
     Append("    call     " + code.name());
 
     // Comment
@@ -285,10 +346,10 @@ public class MasmGenerator {
 
       // Move from rax to var memory
       switch (masmLocation) {
-      case MASM.Memory memory -> Append(Codegen.MoveToMemory(memory, reg));
-      case MASM.Register register -> Append(Codegen.MoveToRegister(register, reg, dataType.type() == DataType.Type.SIGNED));
-      // TODO if it fucking can't you need to fucking create another interface
-      default -> throw new IllegalStateException("Location can't be immediate");
+        case MASM.Memory memory -> Append(Codegen.MoveToMemory(memory, reg));
+        case MASM.Register register -> Append(Codegen.MoveToRegister(register, reg, dataType.type() == DataType.Type.SIGNED));
+        // TODO if it fucking can't you need to fucking create another interface
+        default -> throw new IllegalStateException("Location can't be immediate");
       }
 
       offset += returnSizes[i];

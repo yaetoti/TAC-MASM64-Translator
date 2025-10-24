@@ -36,6 +36,8 @@ public interface MASM {
       RDX,
       RSP,
       RBP,
+      R8,
+      R9
     }
 
     public static final Register RAX = new Register(Type.RAX, "rax", MASM.Type.QWORD);
@@ -66,6 +68,16 @@ public interface MASM {
     public static final Register EBP = new Register(Type.RBP, "ebp", MASM.Type.DWORD);
     public static final Register BP = new Register(Type.RBP, "bp", MASM.Type.WORD);
 
+    public static final Register R8 = new Register(Type.R8, "r8", MASM.Type.QWORD);
+    public static final Register R8D = new Register(Type.R8, "r8d", MASM.Type.DWORD);
+    public static final Register R8W = new Register(Type.R8, "r8w", MASM.Type.WORD);
+    public static final Register R8B = new Register(Type.R8, "r8b", MASM.Type.BYTE);
+
+    public static final Register R9 = new Register(Type.R9, "r9", MASM.Type.QWORD);
+    public static final Register R9D = new Register(Type.R9, "r9d", MASM.Type.DWORD);
+    public static final Register R9W = new Register(Type.R9, "r9w", MASM.Type.WORD);
+    public static final Register R9B = new Register(Type.R9, "r9b", MASM.Type.BYTE);
+
     public static Register GetRegister(Type type, MASM.Type size) {
       return switch (type) {
         case RAX -> GetRegisterFromSize(size, RAX, EAX, AX, AL);
@@ -74,6 +86,8 @@ public interface MASM {
         case RDX -> GetRegisterFromSize(size, RDX, EDX, DX, DL);
         case RSP -> GetRegisterFromSize(size, RSP, ESP, SP, null);
         case RBP -> GetRegisterFromSize(size, RBP, EBP, BP, null);
+        case R8 -> GetRegisterFromSize(size, R8, R8D, R8W, R8B);
+        case R9 -> GetRegisterFromSize(size, R9, R9D, R9W, R9B);
       };
     }
 
@@ -89,6 +103,6 @@ public interface MASM {
 
   // TODO what about addressing arrays?
   sealed interface Memory extends Location {}
-  record LabelMemory(MASM.Type size, String label, int offset) implements Memory {}
-  record OffsetMemory(MASM.Type size, Register base, Register index, int scale, int offset) implements Memory {}
+  record LabelMemory(Type size, String label, int offset) implements Memory {}
+  record OffsetMemory(Type size, Register base, Register index, int scale, int offset) implements Memory {}
 }

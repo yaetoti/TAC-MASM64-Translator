@@ -40,6 +40,10 @@ class TranslationUnit {
     return functions;
   }
 
+  public List<FunctionDeclaration> GetFunctionImports() {
+    return functionImports;
+  }
+
   public FunctionDeclaration GetFunctionDeclaration(String name) {
     for (var declaration : functionImports) {
       if (declaration.name().equals(name)) {
@@ -66,6 +70,10 @@ class TranslationUnit {
 
   public void AddFunctions(List<Function> functions) {
     this.functions.addAll(functions);
+  }
+
+  public void AddFunctionImports(List<FunctionDeclaration> imports) {
+    functionImports.addAll(imports);
   }
 }
 

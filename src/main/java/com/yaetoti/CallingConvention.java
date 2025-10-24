@@ -1,5 +1,6 @@
 package com.yaetoti;
 
 enum CallingConvention {
-  STACKCALL
+  STACKCALL,
+  MS_ABI
 }
