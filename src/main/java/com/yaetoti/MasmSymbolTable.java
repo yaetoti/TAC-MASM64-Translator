@@ -34,6 +34,7 @@ public class MasmSymbolTable {
           default -> throw new IllegalStateException("Unexpected convention: " + function.GetDeclaration().convention());
         }
 
+        // TODO if parameters to be placed on the stack, we need to to it before or save parameter offset
         // For each local variable calculate offsets
         int offset = 0;
         for (var local : function.GetLocalSymbols()) {
