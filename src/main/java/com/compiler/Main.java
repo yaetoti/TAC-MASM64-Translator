@@ -38,8 +38,8 @@ class File {
   public String fullPath;
 
   // Variables defined in that file
-  public ArrayList<SymbolGlobalVariable> globalVariables = new ArrayList<>();
-  public ArrayList<SymbolStaticVariable> staticVariables = new ArrayList<>();
+  public ArrayList<SymbolGlobalVariable> variables = new ArrayList<>();
+  public ArrayList<SymbolGlobalFunction> functions = new ArrayList<>();
 }
 
 class Module {
@@ -51,8 +51,11 @@ class Module {
   public String name;
 
   // All variables
-  public ArrayList<SymbolGlobalVariable> globalVariables = new ArrayList<>();
+  public ArrayList<SymbolGlobalVariable> variables = new ArrayList<>();
+  public ArrayList<SymbolGlobalFunction> functions = new ArrayList<>();
 }
+
+
 
 
 // === Symbols ===
@@ -114,26 +117,38 @@ sealed interface IConstant {}
 record IntegerConstant(String value) implements IConstant {}
 record PointerConstant(ISymbol symbol) implements IConstant {}
 
+
+// Symbols
+
+enum CallingConvention {
+  STACK_CALL,
+  MS_ABI
+}
+
+record FunctionDeclaration(String name, CallingConvention convention, ISymbol[] parameters, IDataType[] returnTypes) {}
+
+
+
 sealed interface ISymbol {
   String GetName();
 }
 //record SymbolVariable() implements ISymbol {}
-// Defined in file, access from anywhere
-record SymbolGlobalVariable(File file, Module module, boolean isExternal, String name, IDataType dataType, IConstant constant) implements ISymbol {
+// Global: Defined in file, access from anywhere
+// Static: Defined in file, access from file
+record SymbolGlobalVariable(File file, Module module, boolean isStatic, boolean isExternal, String name, IDataType dataType, IConstant constant) implements ISymbol {
   @Override
   public String GetName() {
     return name;
   }
 }
-// Defined in file, access from file
-record SymbolStaticVariable(File file, boolean isExternal, String name, IDataType dataType, IConstant constant) implements ISymbol {
+
+// TODO add code
+record SymbolGlobalFunction(File file, Module module, boolean isExternal, FunctionDeclaration declaration) implements ISymbol {
   @Override
   public String GetName() {
-    return name;
+    return declaration.name();
   }
 }
-//record SymbolFunction(File file) implements ISymbol {}
-//record SymbolExternalFunction() implements ISymbol {}
 
 
 // === Utils ===
@@ -185,6 +200,7 @@ final class MasmStringUtils {
   }
 
   public static String GetConstantString(IConstant constant) {
+    // TODO mov rax, ? ; bruh..
     if (constant == null) {
       return "?";
     }
@@ -228,80 +244,88 @@ final class MasmTranslator {
 
     // Public symbols
     // TODO handle modifier
-    for (var globalVar : file.globalVariables) {
-      if (globalVar.isExternal()) {
+    for (var variable : file.variables) {
+      if (variable.isExternal() || variable.isStatic()) {
         continue;
       }
 
       sbFile.append("public ");
-      sbFile.append(globalVar.name());
+      sbFile.append(variable.name());
       sbFile.append('\n');
     }
+
+    sbFile.append('\n');
+
+    // Extern functions
+    for (var function : file.functions) {
+      if (!function.isExternal()) {
+        continue;
+      }
+
+      sbFile.append("extern ");
+      sbFile.append(function.declaration().name());
+      sbFile.append(" : PROC");
+      sbFile.append('\n');
+    }
+
+    sbFile.append('\n');
+
+    // Extern symbols
+    // TODO data type
+    for (var variable : file.variables) {
+      if (!variable.isExternal()) {
+        continue;
+      }
+
+      sbFile.append("extern ");
+      sbFile.append(variable.name());
+      sbFile.append(" : ");
+      sbFile.append(MasmStringUtils.GetTypeString(variable.dataType()));
+      sbFile.append('\n');
+    }
+
+    sbFile.append('\n');
+
+    // External functions
 
     sbFile.append('\n');
 
     // === DATA ===
     sbFile.append(".data\n");
 
-    // Extern symbols
-    // TODO data type
-    for (var globalVar : file.globalVariables) {
-      if (!globalVar.isExternal()) {
-        continue;
-      }
-
-      sbFile.append("extern ");
-      sbFile.append(globalVar.name());
-      sbFile.append(" : ");
-      sbFile.append(MasmStringUtils.GetTypeString(globalVar.dataType()));
-      sbFile.append('\n');
-    }
-
-    for (var staticVar : file.staticVariables) {
-      if (!staticVar.isExternal()) {
-        continue;
-      }
-
-      sbFile.append("extern ");
-      sbFile.append(staticVar.name());
-      sbFile.append(" : ");
-      sbFile.append(MasmStringUtils.GetTypeString(staticVar.dataType()));
-      sbFile.append('\n');
-    }
-
-    sbFile.append('\n');
-
     // Symbol definitions
     // TODO data type
     // TODO constant value
     // TODO pointers
-    for (var globalVar : file.globalVariables) {
-      if (globalVar.isExternal()) {
+    for (var variable : file.variables) {
+      if (variable.isExternal()) {
         continue;
       }
 
-      sbFile.append(globalVar.name());
+      sbFile.append(variable.name());
       sbFile.append(' ');
-      sbFile.append(MasmStringUtils.GetDeclarationString(globalVar.dataType()));
+      sbFile.append(MasmStringUtils.GetDeclarationString(variable.dataType()));
       sbFile.append(' ');
-      sbFile.append(MasmStringUtils.GetConstantString(globalVar.constant()));
-      sbFile.append('\n');
-    }
-
-    for (var staticVar : file.staticVariables) {
-      if (staticVar.isExternal()) {
-        continue;
-      }
-
-      sbFile.append(staticVar.name());
-      sbFile.append(' ');
-      sbFile.append(MasmStringUtils.GetDeclarationString(staticVar.dataType()));
-      sbFile.append(' ');
-      sbFile.append(MasmStringUtils.GetConstantString(staticVar.constant()));
+      sbFile.append(MasmStringUtils.GetConstantString(variable.constant()));
       sbFile.append('\n');
     }
 
     sbFile.append('\n');
+
+    // === CODE ===
+    sbFile.append(".code\n");
+
+    for (var function : file.functions) {
+      if (function.isExternal()) {
+        continue;
+      }
+
+      sbFile.append(function.declaration().name());
+      sbFile.append(" proc\n");
+
+      sbFile.append(function.declaration().name());
+      sbFile.append(" endp\n");
+    }
 
     System.out.println(sbFile);
   }
@@ -343,20 +367,26 @@ public class Main {
     file0.fullPath = "main.y";
 
     // Variables
-    var globalVar0 = new SymbolGlobalVariable(file0, rootModule, false, "number0", DtInteger.i8, new IntegerConstant("64"));
-    file0.globalVariables.add(globalVar0);
-    rootModule.globalVariables.add(globalVar0);
+    var globalVar0 = new SymbolGlobalVariable(file0, rootModule, false, false, "number0", DtInteger.i8, new IntegerConstant("64"));
+    file0.variables.add(globalVar0);
+    rootModule.variables.add(globalVar0);
 
-    var globalVar1 = new SymbolGlobalVariable(file0, rootModule, false, "pointer0", new DtPointer(DtInteger.i8), new PointerConstant(globalVar0));
-    file0.globalVariables.add(globalVar1);
-    rootModule.globalVariables.add(globalVar1);
+    var globalVar1 = new SymbolGlobalVariable(file0, rootModule, false, false, "pointer0", new DtPointer(DtInteger.i8), new PointerConstant(globalVar0));
+    file0.variables.add(globalVar1);
+    rootModule.variables.add(globalVar1);
 
-    var globalVar2 = new SymbolGlobalVariable(file0, rootModule, false, "number1", DtInteger.i64, null);
-    file0.globalVariables.add(globalVar2);
-    rootModule.globalVariables.add(globalVar2);
+    var globalVar2 = new SymbolGlobalVariable(file0, rootModule, true, false, "number1", DtInteger.i64, null);
+    file0.variables.add(globalVar2);
+    rootModule.variables.add(globalVar2);
 
-    var staticVar0 = new SymbolStaticVariable(file0, true, "sNumber0", new DtPointer(DtInteger.i8), new PointerConstant(globalVar0));
-    file0.staticVariables.add(staticVar0);
+    var staticVar0 = new SymbolGlobalVariable(file0, rootModule, true, true, "sNumber0", new DtPointer(DtInteger.i8), new PointerConstant(globalVar0));
+    file0.variables.add(staticVar0);
+    rootModule.variables.add(staticVar0);
+
+    // Functions
+    var function0 = new SymbolGlobalFunction(file0, rootModule, false, new FunctionDeclaration("main", CallingConvention.MS_ABI, new ISymbol[0], new IDataType[0]));
+    file0.functions.add(function0);
+    rootModule.functions.add(function0);
 
     // Test
     for (var file : program.physicalStructure.files) {
