@@ -31,4 +31,22 @@ public final class DataType {
   public static final DataType u16 = new DataType(2, Type.UNSIGNED);
   public static final DataType u32 = new DataType(4, Type.UNSIGNED);
   public static final DataType u64 = new DataType(8, Type.UNSIGNED);
+  // f32
+  // f64
+  // pointer. Do we need a pointer? Yes, we need pointers. I like pointers. Many people say it will be the best pointer in the world. Biden never had such a great pointer.
 }
+
+enum IntegerType {
+  SIGNED,
+  UNSIGNED
+}
+
+sealed interface Type {}
+record Integer(int size, Type type) implements Type {}
+record Float(int size) implements Type {}
+record Pointer(Type underlyingType) implements Type {}
+// TODO struct
+// TODO enum
+// TODO VLA
+// TODO array
+// TODO string

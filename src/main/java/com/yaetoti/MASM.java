@@ -103,6 +103,7 @@ public interface MASM {
 
   // TODO what about addressing arrays?
   sealed interface Memory extends Location {}
+  // rip-relative mapping. only 32 or 8 bit offset
   record LabelMemory(Type size, String label, int offset) implements Memory {}
   record OffsetMemory(Type size, Register base, Register index, int scale, int offset) implements Memory {}
 }

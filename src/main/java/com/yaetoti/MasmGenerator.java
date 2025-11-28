@@ -45,6 +45,25 @@ public class MasmGenerator {
             // The planning should be beforehand, but tac is not enough for that
             // TODO Compound: to register and to memory, because "mov r/m64, imm32"
             // TODO For such kind of shenanigans we need to operate with register allocator
+
+
+            // Plan:
+            // reg = GetFreeRegister()
+            // mov(reg, mem1)
+            // mov(mem2, reg)
+            // DeallocateReg(reg)
+
+            // GetFreeRegister():
+            // r: If there are free registers - return
+            // calculate how many registers we need to spill
+            // spill registers to memory
+            // r: return the first free register
+
+            // Questions:
+            // How many registers do we need to spill?
+            // Allocate memory or use existing?
+
+
             throw new IllegalStateException("Immediate to memory move not implemented yet");
           }
           case MASM.Register register -> Append(Codegen.MoveToRegister(register, immediate));

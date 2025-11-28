@@ -3,6 +3,27 @@ package com.yaetoti;
 import java.util.ArrayList;
 import java.util.List;
 
+class PhysicalStructure {
+  private ArrayList<GlobalSymbolTable.Symbol> staticVariables = new ArrayList<>();
+  private ArrayList<Function> staticFunctions = new ArrayList<>();
+
+  // MASM data
+  // extern function imports
+  // extern variable imports
+
+  // global function imports
+  // global variable imports
+
+  // module function/variable imports
+  // static class function/variable imports
+  // class function imports (that's just functions after all)
+}
+
+class LogicalStructure {
+  private ArrayList<GlobalSymbolTable.Symbol> globalVariables = new ArrayList<>();
+  private ArrayList<Function> globalFunctions = new ArrayList<>();
+}
+
 public class Program {
   private ArrayList<GlobalSymbolTable.Symbol> globalSymbols = new ArrayList<>();
   private ArrayList<TranslationUnit> translationUnits = new ArrayList<>();
@@ -27,7 +48,7 @@ public class Program {
 class TranslationUnit {
   private Program parent;
   private ArrayList<GlobalSymbolTable.Symbol> globalSymbols = new ArrayList<>();
-  private ArrayList<GlobalSymbolTable.Symbol> globalSymbolImports = new ArrayList<>();
+  private ArrayList<GlobalSymbolTable.Symbol> externalSymbols = new ArrayList<>();
   private ArrayList<GlobalSymbolTable.Symbol> staticSymbols = new ArrayList<>();
   private ArrayList<FunctionDeclaration> functionImports = new ArrayList<>();
   private ArrayList<Function> functions = new ArrayList<>();
@@ -81,6 +102,8 @@ record FunctionDeclaration(String name, CallingConvention convention, GlobalSymb
 
 class Function {
   // TODO function visibility public private
+
+  // TODO extern functions does not have code, unit? maybe unit of definition, but not the unit of declaration
   private TranslationUnit parent;
   private FunctionDeclaration declaration;
   private final ArrayList<GlobalSymbolTable.Symbol> localSymbols = new ArrayList<>();

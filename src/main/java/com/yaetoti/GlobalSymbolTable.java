@@ -3,6 +3,14 @@ package com.yaetoti;
 import java.util.ArrayList;
 
 public class GlobalSymbolTable {
+  // TODO usage
+  // TODO add used symbols to a function
+  public enum SymbolUsage {
+    LOCAL,
+    PARAMETER,
+    STATIC,
+    GLOBAL
+  }
   public record Symbol(int id, String name, DataType type) {}
 
   private final ArrayList<Symbol> m_symbols = new ArrayList<>();

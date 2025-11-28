@@ -1,6 +1,79 @@
 package com.yaetoti;
 
+import java.lang.Integer;
+import java.util.ArrayList;
 import java.util.HashMap;
+
+class MasmLocationTable {
+  /// Maps symbol id to memory location
+  private HashMap<Integer, ArrayList<MASM.Location>> m_symToLoc = new HashMap<>();
+  /// Maps a register type to symbol id. Value may be null if register is empty
+  private HashMap<MASM.Register.Type, Integer> m_regToSym = new HashMap<>();
+
+  public MasmLocationTable() {
+    // Explicitly set all registers' content to null
+    for (var registerType : MASM.Register.Type.values()) {
+      m_regToSym.put(registerType, null);
+    }
+  }
+
+  /// @return The first empty register or null if all registers are filled
+  public MASM.Register.Type GetEmptyRegister() {
+    for (var registerType : MASM.Register.Type.values()) {
+      if (m_regToSym.get(registerType) == null) {
+        return registerType;
+      }
+    }
+
+    return null;
+  }
+
+  /// @return An array of empty registers
+  public ArrayList<MASM.Register.Type> GetEmptyRegisters() {
+    ArrayList<MASM.Register.Type> emptyRegisters = new ArrayList<>();
+
+    for (var registerType : MASM.Register.Type.values()) {
+      if (m_regToSym.get(registerType) == null) {
+        emptyRegisters.add(registerType);
+      }
+    }
+
+    return emptyRegisters;
+  }
+
+  // +Get empty registers
+  // +Get first empty register
+  // GetSymbolLocation
+  // SetSymbolLocation (memory/register)
+  // Remove location
+
+  // Build table should be a distinct function
+  // GetMASMtype only for some types. No arrays, structs. They are pointers
+
+  // What happens later? Alright, we need to do that in runtime per function. These are initial locations
+
+  // Globals are kinda constant
+  // u64 number1
+  // mov rax, number1 (number 1 in 2 locations)
+  // mov number1, number2 (number1 contains value of number2. Number2 is still number2)
+
+  // What are we moving? number2 or just a value
+  // just a value. Though, what if
+  // mem = number1
+  // mem = number2
+  // reg1 = number1
+  // reg2 = number2
+  // add reg1 (number1), reg2 (number2)
+  // reg1 == ??
+  // mov number1, reg1
+  // mov number3, reg1
+
+  // load number1 into the first free register and give its id (reg1 containing number1)
+  // load number2 into the second register and give its id (reg2 containing number2)
+  // perform add (reg1 no longer contains number1, contains number3 - result of operation. We move them from symbol to symbol, not from memory to memory. Symbol is a type + name)
+  // result is in the first register (but number2 is still in register2. We can either free it, either have 2 locations and prefer register)
+  // mov the first register to some constant location
+}
 
 public class MasmSymbolTable {
   private HashMap<Integer, MASM.Location> m_symbols = new HashMap<>();
