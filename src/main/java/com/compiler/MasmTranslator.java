@@ -17,7 +17,7 @@ public final class MasmTranslator {
   }
 
   private void TranslateFile(File file) {
-    System.out.println("-- Translating file: " + file.fullPath + " --");
+    System.out.println("\n\n\n--- Translating file: " + file.fullPath + " ---\n\n\n");
 
     // Initialize
     sbFile = new StringBuilder();
@@ -26,6 +26,7 @@ public final class MasmTranslator {
 
     // Public symbols
     // TODO handle modifier
+    sbFile.append("; === PUBLIC ===\n");
     for (var variable : file.variables) {
       if (variable.isExternal() || variable.isStatic()) {
         continue;
@@ -38,7 +39,10 @@ public final class MasmTranslator {
 
     sbFile.append('\n');
 
+    // TODO public/private functions
+
     // Extern functions
+    sbFile.append("; === EXTERN FUNCTIONS ===\n");
     for (var function : file.functions) {
       if (!function.isExternal()) {
         continue;
@@ -53,7 +57,7 @@ public final class MasmTranslator {
     sbFile.append('\n');
 
     // Extern symbols
-    // TODO data type
+    sbFile.append("; === EXTERN SYMBOLS ===\n");
     for (var variable : file.variables) {
       if (!variable.isExternal()) {
         continue;
@@ -68,9 +72,19 @@ public final class MasmTranslator {
 
     sbFile.append('\n');
 
-    // External functions
+    // Imported symbols
+    sbFile.append("; === IMPORTED SYMBOLS ===\n");
+    for (var variable : file.importedVariables) {
+      sbFile.append("extern ");
+      sbFile.append(variable.name());
+      sbFile.append(" : ");
+      sbFile.append(MasmStringUtils.GetTypeString(variable.dataType()));
+      sbFile.append('\n');
+    }
 
     sbFile.append('\n');
+
+    // TODO External functions
 
     // === DATA ===
     sbFile.append(".data\n");
@@ -79,6 +93,7 @@ public final class MasmTranslator {
     // TODO data type
     // TODO constant value
     // TODO pointers
+    sbFile.append("; === SYMBOL DEFINITIONS ===\n");
     for (var variable : file.variables) {
       if (variable.isExternal()) {
         continue;
@@ -97,6 +112,7 @@ public final class MasmTranslator {
     // === CODE ===
     sbFile.append(".code\n");
 
+    sbFile.append("; === FUNCTION DEFINITIONS ===\n");
     // TODO extract
     for (var function : file.functions) {
       if (function.isExternal()) {
@@ -107,7 +123,7 @@ public final class MasmTranslator {
       sbFile.append(" proc\n");
 
       // TODO we need to allocate a place on the stack
-      sbFile.append("BRUH, we have variales:\n");
+      sbFile.append("BRUH, we have locals:\n");
       for (var local : function.locals()) {
         sbFile.append(local.name());
         sbFile.append("\n");

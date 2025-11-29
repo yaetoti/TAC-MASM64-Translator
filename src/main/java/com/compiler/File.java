@@ -13,4 +13,7 @@ public class File {
   // Variables defined in that file
   public ArrayList<SymbolGlobalVariable> variables = new ArrayList<>();
   public ArrayList<SymbolGlobalFunction> functions = new ArrayList<>();
+
+  // Import
+  public ArrayList<SymbolGlobalVariable> importedVariables = new ArrayList<>();
 }

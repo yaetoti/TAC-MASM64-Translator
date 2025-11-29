@@ -45,8 +45,15 @@ public class Main {
     physicalStructure.files.add(file0);
     file0.parentProgram = program;
     file0.parentStructure = physicalStructure;
-    file0.name = "main";
-    file0.fullPath = "main.y";
+    file0.name = "file0";
+    file0.fullPath = "file0.y";
+
+    var file1 = new File();
+    physicalStructure.files.add(file1);
+    file1.parentProgram = program;
+    file1.parentStructure = physicalStructure;
+    file1.name = "file1";
+    file1.fullPath = "file1.y";
 
     // Variables
     var globalVar0 = new SymbolGlobalVariable(file0, rootModule, false, false, "number0", DtInteger.i8, new IntegerConstant("64"));
@@ -64,6 +71,12 @@ public class Main {
     var staticVar0 = new SymbolGlobalVariable(file0, rootModule, true, true, "sNumber0", new DtPointer(DtInteger.i8), new PointerConstant(globalVar0));
     file0.variables.add(staticVar0);
     rootModule.variables.add(staticVar0);
+
+    // TODO test imported
+    var importedVar0 = new SymbolGlobalVariable(file1, rootModule, false, false, "NvOptimusEnabled", DtInteger.i8, new IntegerConstant("64"));
+    file1.variables.add(importedVar0);
+    rootModule.variables.add(importedVar0);
+    file0.importedVariables.add(importedVar0);
 
     // Functions
     var function0 = new SymbolGlobalFunction(
