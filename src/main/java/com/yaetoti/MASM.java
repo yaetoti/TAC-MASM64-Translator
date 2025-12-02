@@ -25,9 +25,9 @@ public interface MASM {
   }
 
   sealed interface Operand { }
-  sealed interface Location extends Operand {}
-
   record Immediate(String value, Type type) implements Operand { }
+
+  sealed interface Location extends Operand {}
   record Register(Type registerType, String name, MASM.Type type) implements Location {
     public enum Type {
       RAX,

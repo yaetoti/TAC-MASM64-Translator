@@ -1,6 +1,8 @@
 package com.compiler;
 
-sealed public interface IDataType {}
+sealed public interface IDataType {
+  int GetSize();
+}
 final class DtInteger implements IDataType {
   public enum Sign {
     SIGNED,
@@ -24,6 +26,7 @@ final class DtInteger implements IDataType {
     m_sign = sign;
   }
 
+  @Override
   public int GetSize() {
     return m_size;
   }
@@ -32,4 +35,9 @@ final class DtInteger implements IDataType {
     return m_sign;
   }
 }
-record DtPointer(IDataType underlyingType) implements IDataType {}
+record DtPointer(IDataType underlyingType) implements IDataType {
+  @Override
+  public int GetSize() {
+    return 8;
+  }
+}

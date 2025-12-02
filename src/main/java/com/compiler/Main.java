@@ -3,8 +3,9 @@ package com.compiler;
 // TAC
 
 
-import java.util.ArrayList;
-import java.util.List;
+import com.compiler.symbols.*;
+
+import java.util.*;
 
 sealed interface ICode {}
 record CodeAssign() implements ICode {}
@@ -12,8 +13,68 @@ record CodeAssign() implements ICode {}
 // Assumptions
 // - Extern is a modifier, because we can do it, symbols don't store values. also because extern may be static or global
 
+class FunctionContext {
+  public RegisterManager registerManager;
+  public FunctionMemoryManager memoryManager;
+}
+
+class FunctionMemoryManager {
+  public HashMap<ISymbol, SymbolLocation> locations = new HashMap<>();
+}
+
+class SymbolLocation {
+  public Memory memory;
+  public Register.Type register;
+  public boolean isDirty; // If both locations present, but data in register is newer
+
+  public SymbolLocation(Memory memory) {
+    this.memory = memory;
+  }
+
+  public SymbolLocation(Register.Type register) {
+    this.register = register;
+  }
+
+  public SymbolLocation(Memory memory, Register.Type register) {
+    this.memory = memory;
+    this.register = register;
+  }
+
+  public SymbolLocation(Memory memory, Register.Type register, boolean isDirty) {
+    this.memory = memory;
+    this.register = register;
+    this.isDirty = isDirty;
+  }
+}
+
+// Tasks
+// - add symbol with memory location (locals)
+// - add symbol with register location (parameters)
+// - add symbol with both memory and register location (?)
+// - move symbol from memory to register
+// - move symbol from register to memory
+// - get register with symbol (if its not in a register - place it into one)
+// - get memory with symbol (if newer value is in register - move to memory)
+// - move from memory to memory (memory -> register -> memory in MASM)
 
 public class Main {
+  static void main() {
+    test1();
+    //test2();
+  }
+
+  static void test2() {
+    // Register Allocator
+    // Get all free registers
+    // Get free register
+    RegisterManager rm = new RegisterManager();
+    var registers = rm.GetRegisters();
+    var free = rm.GetFreeRegister();
+    var frees = rm.GetFreeRegisters(3);
+
+    System.out.println("end");
+  }
+
   static void test1() {
     // Program
     var program = new Program();
@@ -55,31 +116,34 @@ public class Main {
     file1.name = "file1";
     file1.fullPath = "file1.y";
 
+    // Symbol factory
+    var symbolFactory = new SymbolFactory();
+
     // Variables
-    var globalVar0 = new SymbolGlobalVariable(file0, rootModule, false, false, "number0", DtInteger.i8, new IntegerConstant("64"));
+    var globalVar0 = symbolFactory.CreateSymbolGlobalVariable(file0, rootModule, false, false, "number0", DtInteger.i8, new IntegerConstant("64"));
     file0.variables.add(globalVar0);
     rootModule.variables.add(globalVar0);
 
-    var globalVar1 = new SymbolGlobalVariable(file0, rootModule, false, false, "pointer0", new DtPointer(DtInteger.i8), new PointerConstant(globalVar0));
+    var globalVar1 = symbolFactory.CreateSymbolGlobalVariable(file0, rootModule, false, false, "pointer0", new DtPointer(DtInteger.i8), new PointerConstant(globalVar0));
     file0.variables.add(globalVar1);
     rootModule.variables.add(globalVar1);
 
-    var globalVar2 = new SymbolGlobalVariable(file0, rootModule, true, false, "number1", DtInteger.i64, null);
+    var globalVar2 = symbolFactory.CreateSymbolGlobalVariable(file0, rootModule, true, false, "number1", DtInteger.i64, null);
     file0.variables.add(globalVar2);
     rootModule.variables.add(globalVar2);
 
-    var staticVar0 = new SymbolGlobalVariable(file0, rootModule, true, true, "sNumber0", new DtPointer(DtInteger.i8), new PointerConstant(globalVar0));
+    var staticVar0 = symbolFactory.CreateSymbolGlobalVariable(file0, rootModule, true, true, "sNumber0", new DtPointer(DtInteger.i8), new PointerConstant(globalVar0));
     file0.variables.add(staticVar0);
     rootModule.variables.add(staticVar0);
 
     // TODO test imported
-    var importedVar0 = new SymbolGlobalVariable(file1, rootModule, false, false, "NvOptimusEnabled", DtInteger.i8, new IntegerConstant("64"));
+    var importedVar0 = symbolFactory.CreateSymbolGlobalVariable(file1, rootModule, false, false, "NvOptimusEnabled", DtInteger.i8, new IntegerConstant("64"));
     file1.variables.add(importedVar0);
     rootModule.variables.add(importedVar0);
     file0.importedVariables.add(importedVar0);
 
     // Functions
-    var function0 = new SymbolGlobalFunction(
+    var function0 = symbolFactory.CreateSymbolGlobalFunction(
       file0, rootModule, false,
       new FunctionDeclaration("main", CallingConvention.MS_ABI, new ISymbol[0], new IDataType[0]),
       new ArrayList<>()
@@ -88,11 +152,11 @@ public class Main {
     rootModule.functions.add(function0);
 
     // Locals
-    var localVar0 = new SymbolLocalVariable(function0, "temp0", DtInteger.u64);
-    function0.locals().add(localVar0);
+    var localVar0 = symbolFactory.CreateSymbolLocalVariable(function0, "temp0", DtInteger.u64);
+    function0.locals.add(localVar0);
 
-    var localVar1 = new SymbolLocalVariable(function0, "temp1", DtInteger.i32);
-    function0.locals().add(localVar1);
+    var localVar1 = symbolFactory.CreateSymbolLocalVariable(function0, "temp1", DtInteger.i32);
+    function0.locals.add(localVar1);
 
     // Test
     for (var file : program.physicalStructure.files) {
@@ -113,9 +177,5 @@ public class Main {
     for (var child : module.childModules) {
       traverseModules(child);
     }
-  }
-
-  static void main() {
-    test1();
   }
 }

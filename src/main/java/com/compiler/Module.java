@@ -1,5 +1,8 @@
 package com.compiler;
 
+import com.compiler.symbols.SymbolGlobalFunction;
+import com.compiler.symbols.SymbolGlobalVariable;
+
 import java.util.ArrayList;
 
 public class Module {

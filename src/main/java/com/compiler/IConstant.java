@@ -1,5 +1,7 @@
 package com.compiler;
 
+import com.compiler.symbols.ISymbol;
+
 // Constants. Are not symbols
 sealed public interface IConstant {}
 // TODO type?
