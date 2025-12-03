@@ -1,7 +1,7 @@
 package com.compiler;
 
 import com.compiler.symbols.IOperand;
-import com.compiler.symbols.ISymbol;
+import com.compiler.symbols.IVariable;
 
 // Assignable:
 // - Constant
@@ -10,4 +10,4 @@ import com.compiler.symbols.ISymbol;
 // - Other symbol
 
 sealed public interface ICode {}
-record CodeAssign(ISymbol dst, IOperand src) implements ICode {}
+record CodeAssign(IVariable dst, IOperand src) implements ICode {}

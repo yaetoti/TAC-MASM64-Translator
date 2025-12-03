@@ -111,84 +111,171 @@ public final class MasmTranslator {
       out.EmitF("%s proc", function.declaration.name());
       out.IncreaseIndent();
 
-      // TODO extract
-      var memoryManager = new FunctionMemoryManager();
+      var ctxFunc = new FunctionContext();
+      ctxFunc.out = out;
+      ctxFunc.function = function;
+      ctxFunc.memoryManager = new FunctionMemoryManager();
+      ctxFunc.registerManager = new RegisterManager();
 
-      // Code translation
-      int stackSize = 0;
-
-      // Calculate stack size
-      for (var local : function.locals) {
-        int localSize = local.type.GetSize();
-        var masmType = MasmTypeUtils.GetMasmType(local.type);
-
-        stackSize += localSize;
-
-        memoryManager.locations.put(local, new SymbolLocation(new OffsetMemory(masmType, Register.RBP, null, 0, -stackSize)));
-
-        // Add memory address
-
-        // Can we move in directly into a register?
-        // IDataType -> MasmType / null
-
-        // IDataType -> MasmSymbolInfo
-        // or switch IDataType
-      }
-
-      // Prologue
-      out.EmitComment("-- Prologue --");
-      out.Emit("push rbp");
-      out.Emit("mov rbp, rsp");
-
-      // todo allocate stack
-      if (stackSize != 0) {
-        out.EmitF("sub rsp, %s", stackSize);
-      }
-
-      // Code
-      for (var code : function.codes) {
-        out.EmitCommentF("-- %s --", code);
-        switch (code) {
-          case CodeAssign codeAssign -> {
-            switch (codeAssign.dst()) {
-              case IVariable variable -> {
-                var location = memoryManager.locations.get(variable);
-                switch (variable.GetDataType()) {
-                  case DtInteger dtInteger -> {
-                    switch (codeAssign.src()) {
-                      case IntegerConstant iConstant -> {
-                        if (location.register != null) {
-                          out.EmitF("mov %s, %s", location.register.name(), iConstant.value());
-                        }
-
-                        out.EmitF("mov %s, %s", location.memory, iConstant.value());
-                      }
-                      case IVariable iSymbol -> {
-
-                      }
-                      default -> throw new IllegalStateException("Not supported");
-                    }
-                  }
-                  case DtPointer dtPointer -> {
-                    throw new IllegalStateException("Not implemented");
-                  }
-                }
-              }
-              default -> throw new IllegalStateException("Unexpected value: " + codeAssign.dst());
-            }
-          }
-          default -> throw new IllegalStateException("Unexpected code: " + code);
-        }
-      }
-
-      // Epilogue
-      out.EmitComment("-- Epilogue --");
-      out.Emit("pop rbp");
+      TranslateFunction(ctxFunc);
 
       out.DecreaseIndent();
       out.EmitF("%s endp", function.declaration.name());
     }
 
     System.out.println(out.Collect());
+  }
+
+  private void TranslateFunction(FunctionContext ctx) {
+    var memoryManager = ctx.memoryManager;
+    var function = ctx.function;
+
+    // Code translation
+    int stackSize = 0;
+
+    // Calculate stack size
+    for (var local : function.locals) {
+      int localSize = local.type.GetSize();
+      var masmType = MasmTypeUtils.GetMasmType(local.type);
+
+      stackSize += localSize;
+
+      memoryManager.locations.put(local, new SymbolLocation(new OffsetMemory(masmType, Register.RBP, null, 0, -stackSize)));
+    }
+
+    // Prologue
+    out.EmitComment("-- Prologue --");
+    out.Emit("push rbp");
+    out.Emit("mov rbp, rsp");
+
+    // todo add parameters size (depending on convention)
+    if (stackSize != 0) {
+      out.EmitF("sub rsp, %s", stackSize);
+    }
+
+    // Code
+    for (var code : function.codes) {
+      out.EmitCommentF("-- %s --", code);
+      switch (code) {
+        case CodeAssign codeAssign -> TranslateCodeAssign(codeAssign, ctx);
+        default -> throw new IllegalStateException("Unexpected code: " + code);
+      }
+    }
+
+    // TODO ensure all global variables are in memory at this point. Ahhh, volatile, yeah
+
+    // Epilogue
+    out.EmitComment("-- Epilogue --");
+    out.Emit("pop rbp");
+  }
+
+  private void TranslateCodeAssign(CodeAssign codeAssign, FunctionContext ctx) {
+    var memoryManager = ctx.memoryManager;
+    var registerManager = ctx.registerManager;
+
+    // Move cases:
+    // Variable <- Constant
+    // Variable <- Variable
+
+    // Which is:
+    // Register <- Constant
+    // Memory <- Constant /* which is essentially */ Memory <- Register <- Constant
+    // And:
+    // Register <- Register
+    // Register <- Memory
+    // Memory <- Register
+    // Memory <- Memory /* which is essentially */ Memory <- Register <- Memory
+
+    // So:
+    // Register <- Constant (mov rax, 11)
+    // Register <- Register (mov rax, rbx)
+    // Register <- Memory (mov rax, qword ptr [rbp - 8])
+    // Memory <- Register (mov qword ptr [rbp - 8], rax)
+
+    // However, if we handle arrays, we must explicitly handle:
+    // Memory <- Constant
+    // Nevertheless, we still do this, but in a specific order:
+    // Memory <- Register <- Constant
+
+    // Finishing the line, I would like to not touch registers and memory at all. All I want is to handle this:
+    // Variable <- Constant
+    // Variable <- Variable
+    // In any manner
+
+    // Proposed methods:
+    // Move(IVariable dst, IVariable src)
+    // Move(IVariable dst, IConstant)
+
+
+    // What's wrong at this point?
+    // - We do not check if there are no free registers
+    // - Yeah, I can move all the moving logic to FunctionContext. But. I need to know that it is used not only in CodeAssign. I need to know that ISymbol <- IConstant is used elsewhere
+
+
+    var dstLocation = memoryManager.locations.get(codeAssign.dst());
+    var dstMasmType = MasmTypeUtils.GetMasmType(codeAssign.dst().GetDataType());
+
+    switch (codeAssign.dst().GetDataType()) {
+      case DtInteger dtInteger -> {
+        switch (codeAssign.src()) {
+          case IntegerConstant iConstant -> {
+            if (dstLocation.register != null) {
+              out.EmitF("mov %s, %s", dstLocation.register.name(), iConstant.value());
+            }
+
+            var reg = ctx.registerManager.GetFreeRegister();
+            var dstReg = Register.GetRegister(reg.type, dstMasmType).name();
+            reg.symbol = codeAssign.dst();
+            dstLocation.register = reg.type;
+
+            out.EmitF("mov %s, %s", dstReg, iConstant.value());
+          }
+          case IVariable iSymbol -> {
+            var srcLocation = memoryManager.locations.get(iSymbol);
+            var srcMasmType = MasmTypeUtils.GetMasmType(iSymbol.GetDataType());
+
+            if (dstLocation.register != null && srcLocation.register != null) {
+              var dstReg = Register.GetRegister(dstLocation.register, dstMasmType).name();
+              out.EmitF("mov %s, %s", dstReg, srcLocation.register.name());
+              break;
+            }
+
+            if (dstLocation.register != null && srcLocation.register == null) {
+              var dstReg = Register.GetRegister(dstLocation.register, dstMasmType).name();
+              out.EmitF("mov %s, %s", dstReg, srcLocation.memory);
+              break;
+            }
+
+            if (dstLocation.register == null && srcLocation.register != null) {
+              var srcReg = Register.GetRegister(srcLocation.register, srcMasmType).name();
+
+              var reg = registerManager.GetFreeRegister();
+              var dstReg = Register.GetRegister(reg.type, srcMasmType).name();
+              reg.symbol = codeAssign.dst();
+
+              out.EmitF("mov %s, %s", dstReg, srcReg);
+              break;
+            }
+
+            if (dstLocation.register == null && srcLocation.register == null) {
+              // Register <- Memory
+              // Assign register
+
+              var reg = registerManager.GetFreeRegister();
+              var dstReg = Register.GetRegister(reg.type, srcMasmType).name();
+              reg.symbol = codeAssign.dst();
+
+              out.EmitF("mov %s, %s", dstReg, srcLocation.memory);
+              dstLocation.register = reg.type;
+              break;
+            }
+
+            throw new IllegalStateException("Impossible case");
+          }
+          default -> throw new IllegalStateException("Not supported");
+        }
+      }
+      default -> throw new IllegalStateException("Not implemented");
+    }
   }
 }

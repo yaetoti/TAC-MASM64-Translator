@@ -10,40 +10,6 @@ import java.util.*;
 // Assumptions
 // - Extern is a modifier, because we can do it, symbols don't store values. also because extern may be static or global
 
-class FunctionContext {
-  public RegisterManager registerManager;
-  public FunctionMemoryManager memoryManager;
-}
-
-class FunctionMemoryManager {
-  public HashMap<ISymbol, SymbolLocation> locations = new HashMap<>();
-}
-
-class SymbolLocation {
-  public Memory memory;
-  public Register.Type register;
-  public boolean isDirty; // If both locations present, but data in register is newer
-
-  public SymbolLocation(Memory memory) {
-    this.memory = memory;
-  }
-
-  public SymbolLocation(Register.Type register) {
-    this.register = register;
-  }
-
-  public SymbolLocation(Memory memory, Register.Type register) {
-    this.memory = memory;
-    this.register = register;
-  }
-
-  public SymbolLocation(Memory memory, Register.Type register, boolean isDirty) {
-    this.memory = memory;
-    this.register = register;
-    this.isDirty = isDirty;
-  }
-}
-
 // Tasks
 // - add symbol with memory location (locals)
 // - add symbol with register location (parameters)
@@ -157,7 +123,7 @@ public class Main {
 
     // Code
     function0.codes.add(new CodeAssign(localVar0, new IntegerConstant("69")));
-    function0.codes.add(new CodeAssign(localVar1, new IntegerConstant("420")));
+    function0.codes.add(new CodeAssign(localVar1, localVar0));
 
     // Test
     for (var file : program.physicalStructure.files) {
@@ -170,7 +136,12 @@ public class Main {
 
     // Translation
     var translator = new MasmTranslator();
+    var timer = new Timer();
+
+    timer.Start();
     translator.Translate(program);
+    timer.Stop();
+    System.out.println("Elapsed time: " + timer.GetElapsedMilliSeconds() + "ms");
   }
 
   static void traverseModules(Module module) {
