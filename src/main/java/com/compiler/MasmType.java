@@ -21,4 +21,13 @@ public enum MasmType {
       default -> throw new IllegalArgumentException("Invalid size");
     };
   }
+
+  public String GetPointerString() {
+    return switch (this) {
+      case BYTE -> "byte ptr";
+      case WORD -> "word ptr";
+      case DWORD -> "dword ptr";
+      case QWORD -> "qword ptr";
+    };
+  }
 }

@@ -5,7 +5,7 @@ import com.compiler.IDataType;
 // TODO all functions, not just global
 // TODO static variables
 // Local variables
-public final class SymbolLocalVariable implements ISymbol {
+public final class SymbolLocalVariable implements IVariable {
   public long id;
   public SymbolGlobalFunction function;
   public String name;
@@ -26,6 +26,11 @@ public final class SymbolLocalVariable implements ISymbol {
   @Override
   public String GetName() {
     return name;
+  }
+
+  @Override
+  public IDataType GetDataType() {
+    return type;
   }
 
   @Override

@@ -1,5 +1,9 @@
 package com.compiler;
 
+import com.compiler.symbols.IConstant;
+import com.compiler.symbols.IntegerConstant;
+import com.compiler.symbols.PointerConstant;
+
 // === Utils ===
 public final class MasmStringUtils {
   private static final String DB = "db";

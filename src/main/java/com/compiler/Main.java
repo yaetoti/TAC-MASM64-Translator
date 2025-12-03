@@ -7,9 +7,6 @@ import com.compiler.symbols.*;
 
 import java.util.*;
 
-sealed interface ICode {}
-record CodeAssign() implements ICode {}
-
 // Assumptions
 // - Extern is a modifier, because we can do it, symbols don't store values. also because extern may be static or global
 
@@ -157,6 +154,10 @@ public class Main {
 
     var localVar1 = symbolFactory.CreateSymbolLocalVariable(function0, "temp1", DtInteger.i32);
     function0.locals.add(localVar1);
+
+    // Code
+    function0.codes.add(new CodeAssign(localVar0, new IntegerConstant("69")));
+    function0.codes.add(new CodeAssign(localVar1, new IntegerConstant("420")));
 
     // Test
     for (var file : program.physicalStructure.files) {

@@ -1,5 +1,7 @@
 package com.compiler;
 
+import com.compiler.symbols.*;
+
 public final class MasmTranslator {
   public MasmTranslator() {
 
@@ -66,7 +68,7 @@ public final class MasmTranslator {
       sbFile.append("extern ");
       sbFile.append(variable.name);
       sbFile.append(" : ");
-      sbFile.append(MasmStringUtils.GetTypeString(variable.dataType));
+      sbFile.append(MasmStringUtils.GetTypeString(variable.type));
       sbFile.append('\n');
     }
 
@@ -78,7 +80,7 @@ public final class MasmTranslator {
       sbFile.append("extern ");
       sbFile.append(variable.name);
       sbFile.append(" : ");
-      sbFile.append(MasmStringUtils.GetTypeString(variable.dataType));
+      sbFile.append(MasmStringUtils.GetTypeString(variable.type));
       sbFile.append('\n');
     }
 
@@ -101,7 +103,7 @@ public final class MasmTranslator {
 
       sbFile.append(variable.name);
       sbFile.append(' ');
-      sbFile.append(MasmStringUtils.GetDeclarationString(variable.dataType));
+      sbFile.append(MasmStringUtils.GetDeclarationString(variable.type));
       sbFile.append(' ');
       sbFile.append(MasmStringUtils.GetConstantString(variable.constant));
       sbFile.append('\n');
@@ -147,6 +149,7 @@ public final class MasmTranslator {
       }
 
       // Prologue
+      sbFile.append("  ; -- Prologue --\n");
       sbFile.append("  push rbp\n");
       sbFile.append("  mov rbp, rsp\n");
 
@@ -156,9 +159,51 @@ public final class MasmTranslator {
       }
 
       // Code
-      // TODO bruh now we can generate instructions
+      for (var code : function.codes) {
+        sbFile.append("  ; -- ").append(code).append(" --\n");
+        switch (code) {
+          case CodeAssign codeAssign -> {
+            switch (codeAssign.dst()) {
+              case IVariable variable -> {
+                var location = memoryManager.locations.get(variable);
+                switch (variable.GetDataType()) {
+                  case DtInteger dtInteger -> {
+                    switch (codeAssign.src()) {
+                      case IntegerConstant iConstant -> {
+                        if (location.register != null) {
+                          sbFile.append("  mov ")
+                            .append(location.register.name())
+                            .append(", ")
+                            .append(iConstant.value())
+                            .append('\n');
+                        }
+
+                        sbFile.append("  mov ")
+                          .append(location.memory)
+                          .append(", ")
+                          .append(iConstant.value())
+                          .append('\n');;
+                      }
+                      case IVariable iSymbol -> {
+
+                      }
+                      default -> throw new IllegalStateException("Not supported");
+                    }
+                  }
+                  case DtPointer dtPointer -> {
+                    throw new IllegalStateException("Not implemented");
+                  }
+                }
+              }
+              default -> throw new IllegalStateException("Unexpected value: " + codeAssign.dst());
+            }
+          }
+          default -> throw new IllegalStateException("Unexpected code: " + code);
+        }
+      }
 
       // Epilogue
+      sbFile.append("  ; -- Epilogue --\n");
       sbFile.append("  pop rbp\n");
 
       sbFile.append(function.declaration.name());

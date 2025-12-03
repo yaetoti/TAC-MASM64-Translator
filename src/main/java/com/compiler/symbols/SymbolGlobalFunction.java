@@ -2,6 +2,7 @@ package com.compiler.symbols;
 
 import com.compiler.File;
 import com.compiler.FunctionDeclaration;
+import com.compiler.ICode;
 import com.compiler.Module;
 
 import java.util.ArrayList;
@@ -16,6 +17,7 @@ public final class SymbolGlobalFunction implements ISymbol {
   public boolean isExternal;
   public FunctionDeclaration declaration;
   public ArrayList<SymbolLocalVariable> locals;
+  public ArrayList<ICode> codes = new ArrayList<>();
 
   SymbolGlobalFunction(long id, File file, Module module, boolean isExternal, FunctionDeclaration declaration, ArrayList<SymbolLocalVariable> locals) {
     this.id = id;
