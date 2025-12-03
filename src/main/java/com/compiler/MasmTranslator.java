@@ -7,7 +7,7 @@ public final class MasmTranslator {
 
   }
 
-  public StringBuilder sbFile;
+  public CodeEmitter out;
 
   public void Translate(Program program) {
     // Bruh, how do we generate code for variable initialization
@@ -22,107 +22,94 @@ public final class MasmTranslator {
     System.out.println("\n\n\n--- Translating file: " + file.fullPath + " ---\n\n\n");
 
     // Initialize
-    sbFile = new StringBuilder();
+    out = new CodeEmitter(true);
 
     // Generate
 
     // Public symbols
     // TODO handle modifier
-    sbFile.append("; === PUBLIC ===\n");
+
+    out.EmitComment("=== PUBLIC ===");
     for (var variable : file.variables) {
       if (variable.isExternal || variable.isStatic) {
         continue;
       }
 
-      sbFile.append("public ");
-      sbFile.append(variable.name);
-      sbFile.append('\n');
+      out.EmitF("public %s", variable.name);
     }
 
-    sbFile.append('\n');
+    out.Append('\n');
 
     // TODO public/private functions
 
     // Extern functions
-    sbFile.append("; === EXTERN FUNCTIONS ===\n");
+    out.EmitComment("=== EXTERN FUNCTIONS ===");
     for (var function : file.functions) {
       if (!function.isExternal) {
         continue;
       }
 
-      sbFile.append("extern ");
-      sbFile.append(function.declaration.name());
-      sbFile.append(" : PROC");
-      sbFile.append('\n');
+      out.EmitF("extern %s : PROC", function.declaration.name());
     }
 
-    sbFile.append('\n');
+    out.Append('\n');
 
     // Extern symbols
-    sbFile.append("; === EXTERN SYMBOLS ===\n");
+    out.EmitComment("=== EXTERN SYMBOLS ===");
     for (var variable : file.variables) {
       if (!variable.isExternal) {
         continue;
       }
 
-      sbFile.append("extern ");
-      sbFile.append(variable.name);
-      sbFile.append(" : ");
-      sbFile.append(MasmStringUtils.GetTypeString(variable.type));
-      sbFile.append('\n');
+      out.EmitF("extern %s : %s", variable.name, MasmStringUtils.GetTypeString(variable.type));
     }
 
-    sbFile.append('\n');
+    out.Append('\n');
 
     // Imported symbols
-    sbFile.append("; === IMPORTED SYMBOLS ===\n");
+    out.EmitComment("=== IMPORTED SYMBOLS ===");
     for (var variable : file.importedVariables) {
-      sbFile.append("extern ");
-      sbFile.append(variable.name);
-      sbFile.append(" : ");
-      sbFile.append(MasmStringUtils.GetTypeString(variable.type));
-      sbFile.append('\n');
+      out.Append("extern ");
+      out.Append(variable.name);
+      out.Append(" : ");
+      out.Append(MasmStringUtils.GetTypeString(variable.type));
+      out.Append('\n');
     }
 
-    sbFile.append('\n');
+    out.Append('\n');
 
     // TODO External functions
 
     // === DATA ===
-    sbFile.append(".data\n");
+    out.Emit(".data");
 
     // Symbol definitions
     // TODO data type
     // TODO constant value
     // TODO pointers
-    sbFile.append("; === SYMBOL DEFINITIONS ===\n");
+    out.EmitComment("=== SYMBOL DEFINITIONS ===");
     for (var variable : file.variables) {
       if (variable.isExternal) {
         continue;
       }
 
-      sbFile.append(variable.name);
-      sbFile.append(' ');
-      sbFile.append(MasmStringUtils.GetDeclarationString(variable.type));
-      sbFile.append(' ');
-      sbFile.append(MasmStringUtils.GetConstantString(variable.constant));
-      sbFile.append('\n');
+      out.EmitF("%s %s %s", variable.name, MasmStringUtils.GetDeclarationString(variable.type), MasmStringUtils.GetConstantString(variable.constant));
     }
 
-    sbFile.append('\n');
+    out.Append('\n');
 
     // === CODE ===
-    sbFile.append(".code\n");
+    out.Emit(".code");
 
-    sbFile.append("; === FUNCTION DEFINITIONS ===\n");
+    out.EmitComment("=== FUNCTION DEFINITIONS ===");
     // TODO extract
     for (var function : file.functions) {
       if (function.isExternal) {
         continue;
       }
 
-      sbFile.append(function.declaration.name());
-      sbFile.append(" proc\n");
+      out.EmitF("%s proc", function.declaration.name());
+      out.IncreaseIndent();
 
       // TODO extract
       var memoryManager = new FunctionMemoryManager();
@@ -137,7 +124,7 @@ public final class MasmTranslator {
 
         stackSize += localSize;
 
-        memoryManager.locations.put(local, new SymbolLocation(new OffsetMemory(masmType, Register.RBP, null, 0, stackSize)));
+        memoryManager.locations.put(local, new SymbolLocation(new OffsetMemory(masmType, Register.RBP, null, 0, -stackSize)));
 
         // Add memory address
 
@@ -149,18 +136,18 @@ public final class MasmTranslator {
       }
 
       // Prologue
-      sbFile.append("  ; -- Prologue --\n");
-      sbFile.append("  push rbp\n");
-      sbFile.append("  mov rbp, rsp\n");
+      out.EmitComment("-- Prologue --");
+      out.Emit("push rbp");
+      out.Emit("mov rbp, rsp");
 
       // todo allocate stack
       if (stackSize != 0) {
-        sbFile.append("  sub rsp, ").append(stackSize).append('\n');
+        out.EmitF("sub rsp, %s", stackSize);
       }
 
       // Code
       for (var code : function.codes) {
-        sbFile.append("  ; -- ").append(code).append(" --\n");
+        out.EmitCommentF("-- %s --", code);
         switch (code) {
           case CodeAssign codeAssign -> {
             switch (codeAssign.dst()) {
@@ -171,18 +158,10 @@ public final class MasmTranslator {
                     switch (codeAssign.src()) {
                       case IntegerConstant iConstant -> {
                         if (location.register != null) {
-                          sbFile.append("  mov ")
-                            .append(location.register.name())
-                            .append(", ")
-                            .append(iConstant.value())
-                            .append('\n');
+                          out.EmitF("mov %s, %s", location.register.name(), iConstant.value());
                         }
 
-                        sbFile.append("  mov ")
-                          .append(location.memory)
-                          .append(", ")
-                          .append(iConstant.value())
-                          .append('\n');;
+                        out.EmitF("mov %s, %s", location.memory, iConstant.value());
                       }
                       case IVariable iSymbol -> {
 
@@ -203,13 +182,13 @@ public final class MasmTranslator {
       }
 
       // Epilogue
-      sbFile.append("  ; -- Epilogue --\n");
-      sbFile.append("  pop rbp\n");
+      out.EmitComment("-- Epilogue --");
+      out.Emit("pop rbp");
 
-      sbFile.append(function.declaration.name());
-      sbFile.append(" endp\n");
+      out.DecreaseIndent();
+      out.EmitF("%s endp", function.declaration.name());
     }
 
-    System.out.println(sbFile);
+    System.out.println(out.Collect());
   }
 }
