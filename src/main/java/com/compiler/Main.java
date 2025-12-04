@@ -102,7 +102,7 @@ public class Main {
     rootModule.functions.add(function0);
 
     // Locals
-    var localVar0 = symbolFactory.CreateSymbolLocalVariable(function0, "temp0", DtInteger.u64);
+    var localVar0 = symbolFactory.CreateSymbolLocalVariable(function0, "temp0", DtInteger.i16);
     function0.locals.add(localVar0);
 
     var localVar1 = symbolFactory.CreateSymbolLocalVariable(function0, "temp1", DtInteger.i32);
