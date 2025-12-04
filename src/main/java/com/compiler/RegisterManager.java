@@ -17,6 +17,10 @@ public class RegisterManager {
   public void Clear() {
     registers.clear();
     for (var type : Register.Type.values()) {
+      if (type == Register.Type.RBP || type == Register.Type.RSP) {
+        continue;
+      }
+
       registers.put(type, new RegisterInfo(type));
     }
   }
