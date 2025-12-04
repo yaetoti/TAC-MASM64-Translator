@@ -6,9 +6,11 @@ import java.util.LinkedHashMap;
 public class RegisterManager {
   // TODO LRU
   // TODO add all registers
+  public FunctionContext ctx;
   public LinkedHashMap<Register.Type, RegisterInfo> registers = new LinkedHashMap<>();
 
-  public RegisterManager() {
+  public RegisterManager(FunctionContext ctx) {
+    this.ctx = ctx;
     Clear();
   }
 
@@ -41,7 +43,9 @@ public class RegisterManager {
       }
     }
 
-    return null;
+    // Spill
+    var registers = SpillRegisters(1);
+    return registers.getFirst();
   }
 
   public ArrayList<RegisterInfo> GetFreeRegisters(int amount) {
@@ -57,10 +61,56 @@ public class RegisterManager {
       }
     }
 
+    // Spill
     if (freeRegisters.size() != amount) {
-      return null;
+      var registers = SpillRegisters(amount - freeRegisters.size());
+      freeRegisters.addAll(registers);
     }
 
     return freeRegisters;
+  }
+
+  public ArrayList<RegisterInfo> SpillRegisters(int amount) {
+    var memoryManager = ctx.memoryManager;
+    var candidates = new ArrayList<RegisterInfo>();
+
+    // Find candidates
+    for (var entry : registers.entrySet()) {
+      if (candidates.size() >= amount) {
+        break;
+      }
+
+      var type = entry.getKey();
+      var info = entry.getValue();
+
+      // If locked or assigned to a symbol that does not have a memory location - continue
+      // TODO lazy allocation
+      if (info.isLocked || (info.symbol != null && memoryManager.locations.get(info.symbol).memory == null)) {
+        continue;
+      }
+
+      candidates.add(info);
+    }
+
+    if (candidates.size() != amount) {
+      throw new IllegalStateException("Not enough free registers to spill");
+    }
+
+    // Spill
+    for (var info : candidates) {
+      var location = memoryManager.locations.get(info.symbol);
+      var memory = location.memory;
+      var register = Register.GetRegister(location.register, location.memory.GetMasmType());
+
+      // TODO different for float
+
+      ctx.out.EmitF("mov %s, %s", memory, register.name());
+
+      info.symbol = null;
+      location.register = null;
+      location.isDirty = false;
+    }
+
+    return candidates;
   }
 }

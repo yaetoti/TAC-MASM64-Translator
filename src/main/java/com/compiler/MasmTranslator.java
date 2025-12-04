@@ -112,7 +112,7 @@ public final class MasmTranslator {
       ctxFunc.out = out;
       ctxFunc.function = function;
       ctxFunc.memoryManager = new FunctionMemoryManager();
-      ctxFunc.registerManager = new RegisterManager();
+      ctxFunc.registerManager = new RegisterManager(ctxFunc);
 
       TranslateFunction(ctxFunc);
 

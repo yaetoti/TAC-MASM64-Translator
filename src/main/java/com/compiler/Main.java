@@ -23,19 +23,6 @@ import java.util.*;
 public class Main {
   static void main() {
     test1();
-    //test2();
-  }
-
-  static void test2() {
-    // Register Allocator
-    // Get all free registers
-    // Get free register
-    RegisterManager rm = new RegisterManager();
-    var registers = rm.GetRegisters();
-    var free = rm.GetFreeRegister();
-    var frees = rm.GetFreeRegisters(3);
-
-    System.out.println("end");
   }
 
   static void test1() {

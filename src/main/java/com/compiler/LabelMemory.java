@@ -9,4 +9,9 @@ public record LabelMemory(MasmType masmType, String label, int offset) implement
     }
     return String.format("%s [%s - %d]", masmType.GetPointerString(), label, offset);
   }
+
+  @Override
+  public MasmType GetMasmType() {
+    return masmType;
+  }
 }

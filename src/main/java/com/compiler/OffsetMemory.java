@@ -57,4 +57,9 @@ public record OffsetMemory(MasmType masmType, Register base, Register index, int
 
     return builder.toString();
   }
+
+  @Override
+  public MasmType GetMasmType() {
+    return masmType;
+  }
 }
