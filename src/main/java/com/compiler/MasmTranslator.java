@@ -39,7 +39,7 @@ public final class MasmTranslator {
       out.EmitF("public %s", variable.name);
     }
 
-    out.Append('\n');
+    out.EmitNL();
 
     // TODO public/private functions
 
@@ -53,7 +53,7 @@ public final class MasmTranslator {
       out.EmitF("extern %s : PROC", function.declaration.name());
     }
 
-    out.Append('\n');
+    out.EmitNL();
 
     // Extern symbols
     out.EmitComment("=== EXTERN SYMBOLS ===");
@@ -65,19 +65,15 @@ public final class MasmTranslator {
       out.EmitF("extern %s : %s", variable.name, MasmStringUtils.GetTypeString(variable.type));
     }
 
-    out.Append('\n');
+    out.EmitNL();
 
     // Imported symbols
     out.EmitComment("=== IMPORTED SYMBOLS ===");
     for (var variable : file.importedVariables) {
-      out.Append("extern ");
-      out.Append(variable.name);
-      out.Append(" : ");
-      out.Append(MasmStringUtils.GetTypeString(variable.type));
-      out.Append('\n');
+      out.EmitF("extern %s : %s", variable.name, MasmStringUtils.GetTypeString(variable.type));
     }
 
-    out.Append('\n');
+    out.EmitNL();
 
     // TODO External functions
 
@@ -97,7 +93,7 @@ public final class MasmTranslator {
       out.EmitF("%s %s %s", variable.name, MasmStringUtils.GetDeclarationString(variable.type), MasmStringUtils.GetConstantString(variable.constant));
     }
 
-    out.Append('\n');
+    out.EmitNL();
 
     // === CODE ===
     out.Emit(".code");
@@ -123,6 +119,8 @@ public final class MasmTranslator {
       out.DecreaseIndent();
       out.EmitF("%s endp", function.declaration.name());
     }
+
+    out.Emit("end");
 
     System.out.println(out.Collect());
   }

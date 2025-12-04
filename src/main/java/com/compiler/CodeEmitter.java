@@ -60,6 +60,14 @@ public class CodeEmitter {
     sb.append(c);
   }
 
+  public void EmitNL() {
+    if (!isDebugMode) {
+      return;
+    }
+
+    sb.append('\n');
+  }
+
   public void EmitComment(String line) {
     if (!isDebugMode) {
       return;
