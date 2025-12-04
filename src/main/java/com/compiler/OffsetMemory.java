@@ -1,26 +1,26 @@
 package com.compiler;
 
-public record OffsetMemory(MasmType masmType, Register base, Register index, int scale, int offset) implements Memory {
+public record OffsetMemory(int size, Register base, Register index, int scale, int offset) implements Memory {
   @Override
   public String toString() {
-    StringBuilder builder = new StringBuilder();
-    builder.append(masmType.GetPointerString());
-    builder.append(" [");
+    StringBuilder sb = new StringBuilder();
+    sb.append(MasmStringUtils.GetTypeString(size));
+    sb.append(" ptr [");
     // Base
     if (base != null) {
       // Base
-      if (base.type() != MasmType.QWORD) {
+      if (base.size() != 8) {
         throw new IllegalStateException("Base register must be 8 bytes");
       }
-      builder.append(base().name());
+      sb.append(base().name());
 
       // + or -
       if (index() != null) {
         if (scale() > 0) {
-          builder.append(" + ");
+          sb.append(" + ");
         }
         else {
-          builder.append(" - ");
+          sb.append(" - ");
         }
       }
     }
@@ -33,33 +33,33 @@ public record OffsetMemory(MasmType masmType, Register base, Register index, int
         default -> throw new IllegalStateException("Scale must be 1, 2, 4 or 8");
       }
 
-      builder.append(index().name());
-      builder.append(" * ");
-      builder.append(scale());
+      sb.append(index().name());
+      sb.append(" * ");
+      sb.append(scale());
     }
 
     // Offset
     if (base() != null || index() != null) {
       if (offset() >= 0) {
-        builder.append(" + ");
-        builder.append(offset());
+        sb.append(" + ");
+        sb.append(offset());
       }
       else {
-        builder.append(" - ");
-        builder.append(Math.abs(offset()));
+        sb.append(" - ");
+        sb.append(Math.abs(offset()));
       }
     }
     else {
-      builder.append(offset());
+      sb.append(offset());
     }
 
-    builder.append("]");
+    sb.append("]");
 
-    return builder.toString();
+    return sb.toString();
   }
 
   @Override
-  public MasmType GetMasmType() {
-    return masmType;
+  public int GetSize() {
+    return size;
   }
 }

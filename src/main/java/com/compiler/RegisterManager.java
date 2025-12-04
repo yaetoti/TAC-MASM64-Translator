@@ -103,12 +103,9 @@ public class RegisterManager {
     // Spill
     for (var info : candidates) {
       var location = memoryManager.locations.get(info.symbol);
-      var memory = location.memory;
-      var register = Register.GetRegister(location.register, location.memory.GetMasmType());
 
       // TODO different for float
-
-      ctx.out.EmitF("mov %s, %s", memory, register.name());
+      ctx.out.EmitF("mov %s, %s", location.memory, location.register);
 
       info.symbol = null;
       location.register = null;

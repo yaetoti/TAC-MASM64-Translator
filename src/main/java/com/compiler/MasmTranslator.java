@@ -135,11 +135,9 @@ public final class MasmTranslator {
     // Calculate stack size
     for (var local : function.locals) {
       int localSize = local.type.GetSize();
-      var masmType = MasmTypeUtils.GetMasmType(local.type);
 
       stackSize += localSize;
-
-      memoryManager.locations.put(local, new SymbolLocation(new OffsetMemory(masmType, Register.RBP, null, 0, -stackSize)));
+      memoryManager.locations.put(local, new SymbolLocation(new OffsetMemory(localSize, Register.RBP, null, 0, -stackSize)));
     }
 
     // Prologue

@@ -35,21 +35,21 @@ public final class MasmStringUtils {
   }
 
   public static String GetTypeString(IDataType type) {
-    switch (type) {
-      case DtInteger dtInteger -> {
-        return switch (dtInteger.GetSize()) {
-          case 1 -> BYTE;
-          case 2 -> WORD;
-          case 4 -> DWORD;
-          case 8 -> QWORD;
-          default -> throw new IllegalStateException("Unexpected size: " + dtInteger.GetSize());
-        };
-      }
-      case DtPointer dtPointer -> {
-        return QWORD;
-      }
+    return switch (type) {
+      case DtInteger dtInteger -> GetTypeString(dtInteger.GetSize());
+      case DtPointer dtPointer -> QWORD;
       default -> throw new IllegalStateException("Unexpected type: " + type);
-    }
+    };
+  }
+
+  public static String GetTypeString(int size) {
+    return switch (size) {
+      case 1 -> BYTE;
+      case 2 -> WORD;
+      case 4 -> DWORD;
+      case 8 -> QWORD;
+      default -> throw new IllegalStateException("Unexpected size: " + size);
+    };
   }
 
   public static String GetConstantString(IConstant constant) {

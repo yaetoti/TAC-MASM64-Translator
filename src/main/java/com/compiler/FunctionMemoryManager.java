@@ -1,9 +1,14 @@
 package com.compiler;
 
 import com.compiler.symbols.ISymbol;
+import com.compiler.symbols.IVariable;
 
 import java.util.HashMap;
 
 public class FunctionMemoryManager {
-  public HashMap<ISymbol, SymbolLocation> locations = new HashMap<>();
+  public HashMap<IVariable, SymbolLocation> locations = new HashMap<>();
+
+  public SymbolLocation Get(IVariable symbol) {
+    return locations.get(symbol);
+  }
 }
