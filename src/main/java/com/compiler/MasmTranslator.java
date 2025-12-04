@@ -1,5 +1,6 @@
 package com.compiler;
 
+import com.compiler.codegen.IntegerMoveHandlers;
 import com.compiler.symbols.*;
 
 public final class MasmTranslator {
@@ -169,113 +170,57 @@ public final class MasmTranslator {
     out.Emit("pop rbp");
   }
 
-  private void TranslateCodeAssign(CodeAssign codeAssign, FunctionContext ctx) {
-    var memoryManager = ctx.memoryManager;
-    var registerManager = ctx.registerManager;
+  private void EmitMove(IVariable dst, IOperand src, FunctionContext ctx) {
+    switch (src) {
+      case IConstant srcType -> EmitMoveConstant(dst, srcType, ctx);
+      case ISymbol srcType -> EmitMoveSymbol(dst, srcType, ctx);
+      default -> throw new IllegalStateException("Not supported");
+    }
+  }
 
-    // Move cases:
-    // Variable <- Constant
-    // Variable <- Variable
-
-    // Which is:
-    // Register <- Constant
-    // Memory <- Constant /* which is essentially */ Memory <- Register <- Constant
-    // And:
-    // Register <- Register
-    // Register <- Memory
-    // Memory <- Register
-    // Memory <- Memory /* which is essentially */ Memory <- Register <- Memory
-
-    // So:
-    // Register <- Constant (mov rax, 11)
-    // Register <- Register (mov rax, rbx)
-    // Register <- Memory (mov rax, qword ptr [rbp - 8])
-    // Memory <- Register (mov qword ptr [rbp - 8], rax)
-
-    // However, if we handle arrays, we must explicitly handle:
-    // Memory <- Constant
-    // Nevertheless, we still do this, but in a specific order:
-    // Memory <- Register <- Constant
-
-    // Finishing the line, I would like to not touch registers and memory at all. All I want is to handle this:
-    // Variable <- Constant
-    // Variable <- Variable
-    // In any manner
-
-    // Proposed methods:
-    // Move(IVariable dst, IVariable src)
-    // Move(IVariable dst, IConstant)
-
-
-    // What's wrong at this point?
-    // - We do not check if there are no free registers
-    // - Yeah, I can move all the moving logic to FunctionContext. But. I need to know that it is used not only in CodeAssign. I need to know that ISymbol <- IConstant is used elsewhere
-
-
-    var dstLocation = memoryManager.locations.get(codeAssign.dst());
-    var dstMasmType = MasmTypeUtils.GetMasmType(codeAssign.dst().GetDataType());
-
-    switch (codeAssign.dst().GetDataType()) {
-      case DtInteger dtInteger -> {
-        switch (codeAssign.src()) {
-          case IntegerConstant iConstant -> {
-            if (dstLocation.register != null) {
-              out.EmitF("mov %s, %s", dstLocation.register.name(), iConstant.value());
-            }
-
-            var reg = ctx.registerManager.GetFreeRegister();
-            var dstReg = Register.GetRegister(reg.type, dstMasmType).name();
-            reg.symbol = codeAssign.dst();
-            dstLocation.register = reg.type;
-
-            out.EmitF("mov %s, %s", dstReg, iConstant.value());
-          }
-          case IVariable iSymbol -> {
-            var srcLocation = memoryManager.locations.get(iSymbol);
-            var srcMasmType = MasmTypeUtils.GetMasmType(iSymbol.GetDataType());
-
-            if (dstLocation.register != null && srcLocation.register != null) {
-              var dstReg = Register.GetRegister(dstLocation.register, dstMasmType).name();
-              out.EmitF("mov %s, %s", dstReg, srcLocation.register.name());
-              break;
-            }
-
-            if (dstLocation.register != null && srcLocation.register == null) {
-              var dstReg = Register.GetRegister(dstLocation.register, dstMasmType).name();
-              out.EmitF("mov %s, %s", dstReg, srcLocation.memory);
-              break;
-            }
-
-            if (dstLocation.register == null && srcLocation.register != null) {
-              var srcReg = Register.GetRegister(srcLocation.register, srcMasmType).name();
-
-              var reg = registerManager.GetFreeRegister();
-              var dstReg = Register.GetRegister(reg.type, srcMasmType).name();
-              reg.symbol = codeAssign.dst();
-
-              out.EmitF("mov %s, %s", dstReg, srcReg);
-              break;
-            }
-
-            if (dstLocation.register == null && srcLocation.register == null) {
-              // Register <- Memory
-              // Assign register
-
-              var reg = registerManager.GetFreeRegister();
-              var dstReg = Register.GetRegister(reg.type, srcMasmType).name();
-              reg.symbol = codeAssign.dst();
-
-              out.EmitF("mov %s, %s", dstReg, srcLocation.memory);
-              dstLocation.register = reg.type;
-              break;
-            }
-
-            throw new IllegalStateException("Impossible case");
-          }
+  private void EmitMoveConstant(IVariable dst, IConstant src, FunctionContext ctx) {
+    // Destination type
+    switch (dst.GetDataType()) {
+      case DtInteger dstDataType -> {
+        // Source class
+        switch (src) {
+          case IntegerConstant srcType -> IntegerMoveHandlers.MoveIntegerConstant(dst, dstDataType, srcType, ctx);
           default -> throw new IllegalStateException("Not supported");
         }
       }
-      default -> throw new IllegalStateException("Not implemented");
+      case DtPointer dstDataType -> {
+        // Source class
+        switch (src) {
+          case PointerConstant srcType -> throw new IllegalStateException("Not implemented");
+          default -> throw new IllegalStateException("Not supported");
+        }
+      }
     }
+  }
+
+  private void EmitMoveSymbol(IVariable dst, ISymbol src, FunctionContext ctx) {
+    // Destination type
+    switch (dst.GetDataType()) {
+      case DtInteger dstDataType -> {
+        // Source class
+        switch (src) {
+          case IVariable srcType -> {
+            // Source variable data type
+            switch (srcType.GetDataType()) {
+              case DtInteger srcDataType -> IntegerMoveHandlers.MoveIntegerSymbol(dst, dstDataType, srcType, srcDataType, ctx);
+              default -> throw new IllegalStateException("Not supported");
+            }
+          }
+          case SymbolGlobalFunction srcType -> throw new IllegalStateException("Not implemented");
+        }
+      }
+      case DtPointer dstDataType -> throw new IllegalStateException("Not implemented");
+    }
+  }
+
+
+
+  private void TranslateCodeAssign(CodeAssign codeAssign, FunctionContext ctx) {
+    EmitMove(codeAssign.dst(), codeAssign.src(), ctx);
   }
 }

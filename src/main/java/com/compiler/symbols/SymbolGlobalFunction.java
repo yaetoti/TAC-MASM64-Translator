@@ -6,14 +6,13 @@ import com.compiler.ICode;
 import com.compiler.Module;
 
 import java.util.ArrayList;
-import java.util.Objects;
 
 // TODO add code
 // TODO add variables
 public final class SymbolGlobalFunction implements ISymbol {
   public long id;
   public File file;
-  public com.compiler.Module module;
+  public Module module;
   public boolean isExternal;
   public FunctionDeclaration declaration;
   public ArrayList<SymbolLocalVariable> locals;
