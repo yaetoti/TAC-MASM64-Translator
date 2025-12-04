@@ -1,6 +1,6 @@
 package com.compiler;
 
-sealed interface Location permits Memory, Register {}
+public sealed interface Location permits Memory, Register {}
 
 // rip-relative mapping. only 32 or 8 bit offset
 
