@@ -12,6 +12,30 @@ public class FunctionContext {
   public SymbolGlobalFunction function;
   public RegisterManager registerManager;
   public FunctionMemoryManager memoryManager;
+  private int stackSize;
+
+  public void IncreaseStackSize(int amount) {
+    if (amount <= 0) {
+      throw new RuntimeException("Stack size cannot be negative");
+    }
+
+    stackSize += amount;
+  }
+
+  public void DecreaseStackSize(int amount) {
+    if (amount <= 0) {
+      throw new RuntimeException("Stack size cannot be negative");
+    }
+
+    stackSize -= amount;
+    if (stackSize < 0) {
+      throw new RuntimeException("Stack size cannot be negative");
+    }
+  }
+
+  public int GetStackSize() {
+    return stackSize;
+  }
 
   public Register DefineRegister(IVariable symbol) {
     if (MasmTypeUtils.GetStorageClass(symbol.GetDataType()) == MasmStorageClass.MEMORY) {

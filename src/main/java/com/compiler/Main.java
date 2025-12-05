@@ -102,7 +102,7 @@ public class Main {
     // Functions
     var function0 = symbolFactory.CreateSymbolGlobalFunction(
       file0, rootModule, false,
-      new FunctionDeclaration("main", CallingConvention.MS_ABI, new ISymbol[0], new IDataType[0]),
+      new FunctionDeclaration("main", CallingConvention.MS_ABI, new IVariable[0], new IDataType[0]),
       new ArrayList<>()
     );
     file0.functions.add(function0);

@@ -11,4 +11,8 @@ public class FunctionMemoryManager {
   public SymbolLocation Get(IVariable symbol) {
     return locations.get(symbol);
   }
+
+  public SymbolLocation Set(IVariable symbol, SymbolLocation location) {
+    return locations.put(symbol, location);
+  }
 }

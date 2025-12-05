@@ -2,6 +2,7 @@ package com.compiler;
 
 import com.compiler.codegen.IntegerMoveHandlers;
 import com.compiler.codes.CodeAssign;
+import com.compiler.memory.MasmStorageClass;
 import com.compiler.memory.OffsetMemory;
 import com.compiler.memory.Register;
 import com.compiler.structure.File;
@@ -11,6 +12,9 @@ import com.compiler.types.DtInteger;
 import com.compiler.types.DtPointer;
 import com.compiler.utils.CodeEmitter;
 import com.compiler.utils.MasmStringUtils;
+import com.compiler.utils.MasmTypeUtils;
+
+import java.util.List;
 
 public final class MasmTranslator {
   public MasmTranslator() {
@@ -108,7 +112,6 @@ public final class MasmTranslator {
     out.Emit(".code");
 
     out.EmitComment("=== FUNCTION DEFINITIONS ===");
-    // TODO extract
     for (var function : file.functions) {
       if (function.isExternal) {
         continue;
@@ -135,29 +138,99 @@ public final class MasmTranslator {
   }
 
   private void TranslateFunction(FunctionContext ctx) {
+    switch (ctx.function.declaration.convention()) {
+      case STACK_CALL -> throw new IllegalStateException("Not implemented");
+      case MS_ABI -> TranslateFunctionMsAbi(ctx);
+    }
+  }
+
+  private void TranslateFunctionMsAbi(FunctionContext ctx) {
     var memoryManager = ctx.memoryManager;
     var function = ctx.function;
 
-    // Code translation
-    int stackSize = 0;
+    // Initial stack size = 8 non-volatile registers
+    ctx.IncreaseStackSize(56);
 
-    // Calculate stack size
+    // Calculate stack size + append locals
+    int localsSize = 0;
     for (var local : function.locals) {
       int localSize = local.type.GetSize();
 
-      stackSize += localSize;
-      memoryManager.locations.put(local, new SymbolLocation(new OffsetMemory(localSize, Register.RBP, null, 0, -stackSize)));
+      localsSize += localSize;
+      ctx.IncreaseStackSize(localSize);
+      memoryManager.locations.put(local, new SymbolLocation(new OffsetMemory(localSize, Register.RBP, null, 0, -ctx.GetStackSize())));
     }
 
     // Prologue
     out.EmitComment("-- Prologue --");
     out.Emit("push rbp");
     out.Emit("mov rbp, rsp");
+    out.EmitNL();
 
-    // todo add parameters size (depending on convention)
-    if (stackSize != 0) {
-      out.EmitF("sub rsp, %s", stackSize);
+    // Save non-volatile registers
+    out.EmitComment("-- Save non-volatile registers --");
+    out.Emit("push rbx");
+    out.Emit("push rsi");
+    out.Emit("push rdi");
+    out.Emit("push r12");
+    out.Emit("push r13");
+    out.Emit("push r14");
+    out.Emit("push r15");
+    out.EmitNL();
+
+    // Allocation (locals + alignment)
+    {
+      // Calculate padding
+      int padding = ((ctx.GetStackSize() + 15) / 16 * 16) - ctx.GetStackSize();
+      int allocationSize = localsSize + padding;
+      if (padding != 0) {
+        ctx.IncreaseStackSize(padding);
+      }
+
+      // Allocate
+      if (allocationSize != 0) {
+        out.EmitCommentF("-- Allocate space for locals (%s bytes) + alignment (%s bytes) --", localsSize, padding);
+        out.EmitF("sub rsp, %s", allocationSize);
+      }
     }
+
+
+    // TODO is parameter just a variable? wtf?
+
+    // Append params location. Move parameters 0-3 to shadow space
+    out.EmitComment("-- Move parameters to shadow space --");
+    final var gprRegs = List.of(Register.Type.RCX, Register.Type.RDX, Register.Type.R8, Register.Type.R9);
+    var params = ctx.function.declaration.parameters();
+
+    for (int paramId = 0; paramId < params.length; ++paramId) {
+      var param = params[paramId];
+      var paramSize = param.GetDataType().GetSize();
+      var storageClass = MasmTypeUtils.GetStorageClass(param.GetDataType());
+      Register reg = null;
+
+      // Choose register depending on the storage class (GPR/XMM/memory=null)
+      if (paramId < 4) {
+        if (storageClass == MasmStorageClass.GPR) {
+          var type = gprRegs.get(paramId);
+          reg = Register.Get(type, paramSize);
+        }
+      }
+
+      // Set location
+      var location = new SymbolLocation(new OffsetMemory(paramSize, Register.RBP, null, 0, 16 + paramId * 8), reg, reg != null);
+      ctx.memoryManager.Set(param, location);
+
+      // Set register + move to shadow space
+      if (reg != null) {
+        ctx.registerManager.PutVariable(param, reg.type());
+
+        // TODO no.
+        // Move to shadow space
+        //ctx.out.EmitF("mov %s, %s", location.memory, reg);
+      }
+    }
+
+    // TODO should I do it here or before function calls?
 
     // Code
     for (var code : function.codes) {
@@ -169,6 +242,17 @@ public final class MasmTranslator {
     }
 
     // TODO ensure all global variables are in memory at this point. Ahhh, volatile, yeah
+
+    // Pop non-volatile registers
+    out.EmitComment("-- Restore non-volatile registers --");
+    out.Emit("pop r15");
+    out.Emit("pop r14");
+    out.Emit("pop r13");
+    out.Emit("pop r12");
+    out.Emit("pop rdi");
+    out.Emit("pop rsi");
+    out.Emit("pop rbx");
+    out.EmitNL();
 
     // Epilogue
     out.EmitComment("-- Epilogue --");

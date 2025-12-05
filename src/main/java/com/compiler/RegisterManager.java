@@ -1,6 +1,7 @@
 package com.compiler;
 
 import com.compiler.memory.Register;
+import com.compiler.symbols.IVariable;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -25,6 +26,10 @@ public class RegisterManager {
 
       registers.put(type, new RegisterInfo(type));
     }
+  }
+
+  public void PutVariable(IVariable symbol, Register.Type type) {
+    registers.get(type).symbol = symbol;
   }
 
   public ArrayList<RegisterInfo> GetRegisters() {
