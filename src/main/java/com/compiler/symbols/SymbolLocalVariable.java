@@ -1,6 +1,6 @@
 package com.compiler.symbols;
 
-import com.compiler.IDataType;
+import com.compiler.types.IDataType;
 
 // TODO all functions, not just global
 // TODO static variables

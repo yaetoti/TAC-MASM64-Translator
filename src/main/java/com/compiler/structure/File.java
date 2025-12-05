@@ -1,19 +1,22 @@
-package com.compiler;
+package com.compiler.structure;
 
 import com.compiler.symbols.SymbolGlobalFunction;
 import com.compiler.symbols.SymbolGlobalVariable;
 
 import java.util.ArrayList;
 
-public class Module {
+public class File {
   public Program parentProgram;
-  public LogicalStructure parentStructure;
-  public Module parentModule;
-  public ArrayList<Module> childModules = new ArrayList<>();
+  public PhysicalStructure parentStructure;
 
+  // File attributes
   public String name;
+  public String fullPath;
 
-  // All variables
+  // Variables defined in that file
   public ArrayList<SymbolGlobalVariable> variables = new ArrayList<>();
   public ArrayList<SymbolGlobalFunction> functions = new ArrayList<>();
+
+  // Import
+  public ArrayList<SymbolGlobalVariable> importedVariables = new ArrayList<>();
 }

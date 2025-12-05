@@ -1,8 +1,8 @@
 package com.compiler.symbols;
 
-import com.compiler.File;
-import com.compiler.IDataType;
-import com.compiler.Module;
+import com.compiler.structure.File;
+import com.compiler.types.IDataType;
+import com.compiler.structure.Module;
 
 //record SymbolVariable() implements ISymbol {}
 // Global: Defined in file, access from anywhere

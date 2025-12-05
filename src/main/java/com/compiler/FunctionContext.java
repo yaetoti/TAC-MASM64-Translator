@@ -1,7 +1,11 @@
 package com.compiler;
 
+import com.compiler.memory.MasmStorageClass;
+import com.compiler.memory.Register;
 import com.compiler.symbols.IVariable;
 import com.compiler.symbols.SymbolGlobalFunction;
+import com.compiler.utils.CodeEmitter;
+import com.compiler.utils.MasmTypeUtils;
 
 public class FunctionContext {
   public CodeEmitter out;

@@ -1,7 +1,16 @@
 package com.compiler;
 
 import com.compiler.codegen.IntegerMoveHandlers;
+import com.compiler.codes.CodeAssign;
+import com.compiler.memory.OffsetMemory;
+import com.compiler.memory.Register;
+import com.compiler.structure.File;
+import com.compiler.structure.Program;
 import com.compiler.symbols.*;
+import com.compiler.types.DtInteger;
+import com.compiler.types.DtPointer;
+import com.compiler.utils.CodeEmitter;
+import com.compiler.utils.MasmStringUtils;
 
 public final class MasmTranslator {
   public MasmTranslator() {

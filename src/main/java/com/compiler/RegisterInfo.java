@@ -1,5 +1,6 @@
 package com.compiler;
 
+import com.compiler.memory.Register;
 import com.compiler.symbols.ISymbol;
 
 public class RegisterInfo {

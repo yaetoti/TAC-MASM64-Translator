@@ -1,4 +1,6 @@
-package com.compiler;
+package com.compiler.memory;
+
+import com.compiler.utils.MasmStringUtils;
 
 public record LabelMemory(int size, String label, int offset) implements Memory {
   @Override

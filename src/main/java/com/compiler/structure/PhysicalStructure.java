@@ -1,4 +1,4 @@
-package com.compiler;
+package com.compiler.structure;
 
 import java.util.ArrayList;
 

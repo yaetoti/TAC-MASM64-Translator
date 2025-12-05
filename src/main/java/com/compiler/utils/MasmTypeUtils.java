@@ -1,4 +1,10 @@
-package com.compiler;
+package com.compiler.utils;
+
+import com.compiler.memory.MasmStorageClass;
+import com.compiler.MasmType;
+import com.compiler.types.DtInteger;
+import com.compiler.types.DtPointer;
+import com.compiler.types.IDataType;
 
 public final class MasmTypeUtils {
   public static MasmStorageClass GetStorageClass(IDataType type) {

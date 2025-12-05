@@ -1,5 +1,7 @@
 package com.compiler;
 
+import com.compiler.memory.Register;
+
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 

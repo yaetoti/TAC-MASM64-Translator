@@ -1,7 +1,9 @@
 package com.compiler.symbols;
 
 import com.compiler.*;
-import com.compiler.Module;
+import com.compiler.structure.File;
+import com.compiler.structure.Module;
+import com.compiler.types.IDataType;
 
 import java.util.ArrayList;
 import java.util.HashMap;

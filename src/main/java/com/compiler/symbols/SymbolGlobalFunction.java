@@ -1,9 +1,9 @@
 package com.compiler.symbols;
 
-import com.compiler.File;
+import com.compiler.structure.File;
 import com.compiler.FunctionDeclaration;
-import com.compiler.ICode;
-import com.compiler.Module;
+import com.compiler.codes.ICode;
+import com.compiler.structure.Module;
 
 import java.util.ArrayList;
 

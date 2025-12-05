@@ -1,4 +1,4 @@
-package com.compiler;
+package com.compiler.memory;
 
 public enum MasmStorageClass {
   MEMORY,

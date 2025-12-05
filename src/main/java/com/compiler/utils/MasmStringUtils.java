@@ -1,8 +1,11 @@
-package com.compiler;
+package com.compiler.utils;
 
 import com.compiler.symbols.IConstant;
 import com.compiler.symbols.IntegerConstant;
 import com.compiler.symbols.PointerConstant;
+import com.compiler.types.DtInteger;
+import com.compiler.types.DtPointer;
+import com.compiler.types.IDataType;
 
 // === Utils ===
 public final class MasmStringUtils {

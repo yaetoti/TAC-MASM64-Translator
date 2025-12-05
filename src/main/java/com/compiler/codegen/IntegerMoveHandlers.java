@@ -1,6 +1,6 @@
 package com.compiler.codegen;
 
-import com.compiler.DtInteger;
+import com.compiler.types.DtInteger;
 import com.compiler.FunctionContext;
 import com.compiler.symbols.IVariable;
 import com.compiler.symbols.IntegerConstant;

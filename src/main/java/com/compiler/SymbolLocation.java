@@ -1,5 +1,8 @@
 package com.compiler;
 
+import com.compiler.memory.Memory;
+import com.compiler.memory.Register;
+
 public class SymbolLocation {
   public Memory memory;
   public Register register;

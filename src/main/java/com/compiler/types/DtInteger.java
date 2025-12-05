@@ -1,4 +1,4 @@
-package com.compiler;
+package com.compiler.types;
 
 public final class DtInteger implements IDataType {
   public enum Sign {

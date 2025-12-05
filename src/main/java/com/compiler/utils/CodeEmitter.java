@@ -1,6 +1,4 @@
-package com.compiler;
-
-import java.util.Objects;
+package com.compiler.utils;
 
 public class CodeEmitter {
   private StringBuilder sb = new StringBuilder();

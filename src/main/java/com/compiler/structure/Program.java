@@ -1,4 +1,4 @@
-package com.compiler;
+package com.compiler.structure;
 
 public class Program {
   public PhysicalStructure physicalStructure;

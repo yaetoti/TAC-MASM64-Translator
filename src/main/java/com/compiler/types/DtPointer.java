@@ -1,4 +1,4 @@
-package com.compiler;
+package com.compiler.types;
 
 public record DtPointer(IDataType underlyingType) implements IDataType {
   @Override

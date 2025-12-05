@@ -1,4 +1,6 @@
-package com.compiler;
+package com.compiler.memory;
+
+import com.compiler.utils.MasmStringUtils;
 
 public record OffsetMemory(int size, Register base, Register index, int scale, int offset) implements Memory {
   @Override

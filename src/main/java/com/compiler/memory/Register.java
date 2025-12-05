@@ -1,4 +1,4 @@
-package com.compiler;
+package com.compiler.memory;
 
 public record Register(Type type, String name, int size) implements Location {
   public enum Type {

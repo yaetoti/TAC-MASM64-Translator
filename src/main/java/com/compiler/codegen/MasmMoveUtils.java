@@ -1,7 +1,7 @@
 package com.compiler.codegen;
 
 import com.compiler.FunctionContext;
-import com.compiler.Register;
+import com.compiler.memory.Register;
 
 public final class MasmMoveUtils {
   public static void MoveToRegister(FunctionContext ctx, Register dst, Register src, boolean isSigned) {

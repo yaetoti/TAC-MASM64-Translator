@@ -3,7 +3,14 @@ package com.compiler;
 // TAC
 
 
+import com.compiler.codes.CodeAssign;
+import com.compiler.structure.*;
+import com.compiler.structure.Module;
 import com.compiler.symbols.*;
+import com.compiler.types.DtInteger;
+import com.compiler.types.DtPointer;
+import com.compiler.types.IDataType;
+import com.compiler.utils.Timer;
 
 import java.util.*;
 
@@ -39,12 +46,12 @@ public class Main {
     program.physicalStructure = physicalStructure;
 
     // Modules
-    var rootModule = new Module();
+    var rootModule = new com.compiler.structure.Module();
     logicalStructure.rootModule = rootModule;
     rootModule.parentProgram = program;
     rootModule.parentStructure = logicalStructure;
 
-    var module0 = new Module();
+    var module0 = new com.compiler.structure.Module();
     rootModule.childModules.add(module0);
     module0.parentProgram = program;
     module0.parentStructure = logicalStructure;

@@ -1,4 +1,4 @@
-package com.compiler;
+package com.compiler.utils;
 
 public class Timer {
   private long startTime;
