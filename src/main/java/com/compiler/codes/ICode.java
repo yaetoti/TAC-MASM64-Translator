@@ -6,4 +6,7 @@ package com.compiler.codes;
 // - String
 // - Other symbol
 
-public sealed interface ICode permits CodeAssign {}
+public sealed interface ICode permits CodeAssign, CodeCall, CodeReturn {}
+
+record CodeCall() implements ICode {}
+record CodeReturn() implements ICode {}

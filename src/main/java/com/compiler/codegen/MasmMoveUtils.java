@@ -21,7 +21,7 @@ public final class MasmMoveUtils {
     // Promotion
     // Signed
     if (isSigned) {
-      if (dst.size() == 4) {
+      if (src.size() == 4) {
         ctx.out.EmitF("movsxd %s, %s", dst, src);
         return;
       }
@@ -31,7 +31,7 @@ public final class MasmMoveUtils {
     }
 
     // Unsigned
-    if (dst.size() == 4) {
+    if (src.size() == 4) {
       ctx.out.EmitF("mov %s, %s", dst, src);
       return;
     }
