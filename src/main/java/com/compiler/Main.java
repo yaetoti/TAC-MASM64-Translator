@@ -4,6 +4,7 @@ package com.compiler;
 
 
 import com.compiler.codes.CodeAssign;
+import com.compiler.codes.CodeReturn;
 import com.compiler.structure.*;
 import com.compiler.structure.Module;
 import com.compiler.symbols.*;
@@ -89,7 +90,7 @@ public class Main {
     file0.variables.add(globalVar2);
     rootModule.variables.add(globalVar2);
 
-    var staticVar0 = symbolFactory.CreateSymbolGlobalVariable(file0, rootModule, true, true, "sNumber0", new DtPointer(DtInteger.i8), new PointerConstant(globalVar0));
+    var staticVar0 = symbolFactory.CreateSymbolGlobalVariable(file0, rootModule, true, false, "sNumber0", new DtPointer(DtInteger.i8), new PointerConstant(globalVar0));
     file0.variables.add(staticVar0);
     rootModule.variables.add(staticVar0);
 
@@ -118,6 +119,7 @@ public class Main {
     // Code
     function0.codes.add(new CodeAssign(localVar0, new IntegerConstant("69")));
     function0.codes.add(new CodeAssign(localVar1, localVar0));
+    function0.codes.add(new CodeReturn(new IVariable[] { localVar1 }));
 
     // Test
     for (var file : program.physicalStructure.files) {

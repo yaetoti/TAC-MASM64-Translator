@@ -9,7 +9,7 @@ import java.util.ArrayList;
 
 // TODO add code
 // TODO add variables
-public final class SymbolGlobalFunction implements ISymbol {
+public final class SymbolGlobalFunction implements IFunction {
   public long id;
   public File file;
   public Module module;

@@ -8,5 +8,3 @@ package com.compiler.codes;
 
 public sealed interface ICode permits CodeAssign, CodeCall, CodeReturn {}
 
-record CodeCall() implements ICode {}
-record CodeReturn() implements ICode {}

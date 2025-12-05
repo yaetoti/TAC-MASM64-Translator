@@ -2,6 +2,8 @@ package com.compiler;
 
 import com.compiler.codegen.IntegerMoveHandlers;
 import com.compiler.codes.CodeAssign;
+import com.compiler.codes.CodeCall;
+import com.compiler.codes.CodeReturn;
 import com.compiler.memory.MasmStorageClass;
 import com.compiler.memory.OffsetMemory;
 import com.compiler.memory.Register;
@@ -237,26 +239,27 @@ public final class MasmTranslator {
       out.EmitCommentF("-- %s --", code);
       switch (code) {
         case CodeAssign codeAssign -> TranslateCodeAssign(codeAssign, ctx);
-        default -> throw new IllegalStateException("Unexpected code: " + code);
+        case CodeCall codeCall -> throw new RuntimeException("Not implemented");
+        case CodeReturn codeReturn -> TranslateCodeReturn(codeReturn, ctx);
       }
     }
 
     // TODO ensure all global variables are in memory at this point. Ahhh, volatile, yeah
 
     // Pop non-volatile registers
-    out.EmitComment("-- Restore non-volatile registers --");
-    out.Emit("pop r15");
-    out.Emit("pop r14");
-    out.Emit("pop r13");
-    out.Emit("pop r12");
-    out.Emit("pop rdi");
-    out.Emit("pop rsi");
-    out.Emit("pop rbx");
-    out.EmitNL();
-
-    // Epilogue
-    out.EmitComment("-- Epilogue --");
-    out.Emit("pop rbp");
+//    out.EmitComment("-- Restore non-volatile registers --");
+//    out.Emit("pop r15");
+//    out.Emit("pop r14");
+//    out.Emit("pop r13");
+//    out.Emit("pop r12");
+//    out.Emit("pop rdi");
+//    out.Emit("pop rsi");
+//    out.Emit("pop rbx");
+//    out.EmitNL();
+//
+//    // Epilogue
+//    out.EmitComment("-- Epilogue --");
+//    out.Emit("pop rbp");
   }
 
   private void EmitMove(IVariable dst, IOperand src, FunctionContext ctx) {
@@ -309,7 +312,46 @@ public final class MasmTranslator {
 
 
 
-  private void TranslateCodeAssign(CodeAssign codeAssign, FunctionContext ctx) {
-    EmitMove(codeAssign.dst(), codeAssign.src(), ctx);
+  private void TranslateCodeAssign(CodeAssign code, FunctionContext ctx) {
+    EmitMove(code.dst(), code.src(), ctx);
+  }
+
+  private void TranslateCodeReturn(CodeReturn code, FunctionContext ctx) {
+    switch (ctx.function.declaration.convention()) {
+      case MS_ABI -> TranslateCodeReturnMsAbi(code, ctx);
+      default -> throw new RuntimeException("Not implemented");
+    }
+  }
+
+  private void TranslateCodeReturnMsAbi(CodeReturn code, FunctionContext ctx) {
+    var returnSymbol = code.returnValues()[0];
+
+    // Free all registers
+    out.EmitComment("-- Spill all registers --");
+    ctx.registerManager.FlushRegisters();
+
+    // Move the result to rax
+    out.EmitComment("-- Move the result to rax --");
+    ctx.EnsureInRegister(returnSymbol, Register.Type.RAX);
+    out.EmitNL();
+
+    // TODO may be useful to clean that information
+    // TODO here we must spill everything to memory
+    // Pop non-volatile registers
+    out.EmitComment("-- Restore non-volatile registers --");
+    out.Emit("lea rsp, [rbp - 56]");
+    out.Emit("pop r15");
+    out.Emit("pop r14");
+    out.Emit("pop r13");
+    out.Emit("pop r12");
+    out.Emit("pop rdi");
+    out.Emit("pop rsi");
+    out.Emit("pop rbx");
+    out.EmitNL();
+
+    // Epilogue
+    out.EmitComment("-- Epilogue --");
+    out.Emit("pop rbp");
+    out.Emit("ret");
   }
 }

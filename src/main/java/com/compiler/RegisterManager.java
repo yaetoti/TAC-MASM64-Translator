@@ -28,6 +28,10 @@ public class RegisterManager {
     }
   }
 
+  public RegisterInfo Get(Register.Type type) {
+    return registers.get(type);
+  }
+
   public void PutVariable(IVariable symbol, Register.Type type) {
     registers.get(type).symbol = symbol;
   }
@@ -55,7 +59,7 @@ public class RegisterManager {
     }
 
     // Spill
-    var registers = SpillRegisters(1);
+    var registers = FlushRegisters(1);
     return registers.getFirst();
   }
 
@@ -74,14 +78,57 @@ public class RegisterManager {
 
     // Spill
     if (freeRegisters.size() != amount) {
-      var registers = SpillRegisters(amount - freeRegisters.size());
+      var registers = FlushRegisters(amount - freeRegisters.size());
       freeRegisters.addAll(registers);
     }
 
     return freeRegisters;
   }
 
-  public ArrayList<RegisterInfo> SpillRegisters(int amount) {
+  public void FlushRegister(Register.Type type) {
+    var regInfo = registers.get(type);
+    if (regInfo.isLocked) {
+      throw new RuntimeException("Cannot spill locked register");
+    }
+
+    // Already spilled
+    if (regInfo.symbol == null) {
+      return;
+    }
+
+    ctx.Flush(regInfo.symbol);
+  }
+
+  public void FlushRegisters() {
+    var memoryManager = ctx.memoryManager;
+
+    // Find candidates
+    for (var entry : registers.entrySet()) {
+      var info = entry.getValue();
+      // Locked registers must be unlocked manually
+      if (info.isLocked) {
+        throw new RuntimeException("Cannot spill locked register");
+      }
+
+      // Already free
+      if (info.symbol == null) {
+        continue;
+      }
+
+      // TODO. Only if we call it FreeAllRegisters. But what if we need that data? We need to allocate a new memory and we do not do that
+      var location = memoryManager.locations.get(info.symbol);
+      if (location.memory == null) {
+        throw new RuntimeException("Cannot spill register that does not have a memory location");
+      }
+
+      // Spill
+      ctx.out.EmitF("mov %s, %s", location.memory, location.register);
+      location.register = null;
+      location.isDirty = false;
+    }
+  }
+
+  public ArrayList<RegisterInfo> FlushRegisters(int amount) {
     var memoryManager = ctx.memoryManager;
     var candidates = new ArrayList<RegisterInfo>();
 
