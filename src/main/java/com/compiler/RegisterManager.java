@@ -123,6 +123,7 @@ public class RegisterManager {
 
       // Spill
       ctx.out.EmitF("mov %s, %s", location.memory, location.register);
+      info.symbol = null;
       location.register = null;
       location.isDirty = false;
     }

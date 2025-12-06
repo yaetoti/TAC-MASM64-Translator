@@ -33,7 +33,7 @@ public final class MasmMoveUtils {
 
     // Unsigned
     if (src.size() == 4) {
-      ctx.out.EmitF("mov %s, %s", dst, src);
+      ctx.out.EmitF("mov %s, %s", Register.Get(dst.type(), 4), src);
       return;
     }
 

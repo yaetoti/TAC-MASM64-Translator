@@ -39,7 +39,7 @@ public final class MasmTranslator {
     System.out.println("\n\n\n--- Translating file: " + file.fullPath + " ---\n\n\n");
 
     // Initialize
-    out = new CodeEmitter(true);
+    out = new CodeEmitter(false);
 
     // Generate
 
@@ -243,6 +243,7 @@ public final class MasmTranslator {
         case CodeCall codeCall -> TranslateCodeCall(codeCall, ctx);
         case CodeReturn codeReturn -> TranslateCodeReturn(codeReturn, ctx);
       }
+      out.EmitNL();
     }
 
     // TODO ensure all global variables are in memory at this point. Ahhh, volatile, yeah
@@ -325,16 +326,17 @@ public final class MasmTranslator {
   }
 
   private void TranslateCodeReturnMsAbi(CodeReturn code, FunctionContext ctx) {
-    var returnSymbol = code.returnValues()[0];
-
     // Free all registers
     out.EmitComment("-- Spill all registers --");
     ctx.registerManager.FlushRegisters();
 
     // Move the result to rax
-    out.EmitComment("-- Move the result to rax --");
-    ctx.EnsureInRegister(returnSymbol, Register.Type.RAX);
-    out.EmitNL();
+    if (code.returnValues().length != 0) {
+      out.EmitComment("-- Move the result to rax --");
+      var returnSymbol = code.returnValues()[0];
+      ctx.EnsureInRegister(returnSymbol, Register.Type.RAX);
+      out.EmitNL();
+    }
 
     // TODO may be useful to clean that information
     // TODO here we must spill everything to memory
@@ -413,10 +415,12 @@ public final class MasmTranslator {
     ctx.out.EmitF("call %s", code.function().GetName());
 
     // Store return value
-    var returnSymbol = code.returnValues()[0];
-    var returnLocation = ctx.memoryManager.Get(returnSymbol);
-    raxRegInfo.symbol = returnSymbol;
-    returnLocation.register = Register.Get(Register.Type.RAX, returnSymbol.GetDataType().GetSize());
+    if (code.returnValues().length != 0) {
+      var returnSymbol = code.returnValues()[0];
+      var returnLocation = ctx.memoryManager.Get(returnSymbol);
+      raxRegInfo.symbol = returnSymbol;
+      returnLocation.register = Register.Get(Register.Type.RAX, returnSymbol.GetDataType().GetSize());
+    }
 
     // Free stack memory
     ctx.out.EmitF("add rsp, %s", totalAllocSize);

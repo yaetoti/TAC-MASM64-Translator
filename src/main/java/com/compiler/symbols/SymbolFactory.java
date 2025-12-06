@@ -33,6 +33,13 @@ public final class SymbolFactory {
     return symbol;
   }
 
+  public SymbolParameter CreateSymbolParameter(String name, IDataType type) {
+    long id = nextId++;
+    var symbol = new SymbolParameter(id, name, type);
+    symbols.put(id, symbol);
+    return symbol;
+  }
+
   public ISymbol GetSymbol(Long id) {
     return symbols.get(id);
   }

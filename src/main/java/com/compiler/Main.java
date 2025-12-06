@@ -4,6 +4,7 @@ package com.compiler;
 
 
 import com.compiler.codes.CodeAssign;
+import com.compiler.codes.CodeCall;
 import com.compiler.codes.CodeReturn;
 import com.compiler.structure.*;
 import com.compiler.structure.Module;
@@ -101,7 +102,7 @@ public class Main {
     file0.importedVariables.add(importedVar0);
 
     // Parameters
-
+    var eParam0 = symbolFactory.CreateSymbolParameter("uExitCode", DtInteger.u32);
 
     // External functions
     var eFunction0 = symbolFactory.CreateSymbolGlobalFunction(
@@ -109,11 +110,13 @@ public class Main {
       new FunctionDeclaration(
         "ExitProcess",
         CallingConvention.MS_ABI,
-        new IVariable[0],
+        new IVariable[] { eParam0 },
         new IDataType[0]
       ),
       null
     );
+    file0.functions.add(eFunction0);
+    rootModule.functions.add(eFunction0);
 
     // Functions
     var function0 = symbolFactory.CreateSymbolGlobalFunction(
@@ -125,7 +128,7 @@ public class Main {
     rootModule.functions.add(function0);
 
     // Locals
-    var localVar0 = symbolFactory.CreateSymbolLocalVariable(function0, "temp0", DtInteger.i32);
+    var localVar0 = symbolFactory.CreateSymbolLocalVariable(function0, "temp0", DtInteger.u32);
     function0.locals.add(localVar0);
 
     var localVar1 = symbolFactory.CreateSymbolLocalVariable(function0, "temp1", DtInteger.i64);
@@ -134,6 +137,7 @@ public class Main {
     // Code
     function0.codes.add(new CodeAssign(localVar0, new IntegerConstant("69")));
     function0.codes.add(new CodeAssign(localVar1, localVar0));
+    function0.codes.add(new CodeCall(eFunction0, new IVariable[] { localVar0 }, new IVariable[0]));
     function0.codes.add(new CodeReturn(new IVariable[] { localVar1 }));
 
     // Test
