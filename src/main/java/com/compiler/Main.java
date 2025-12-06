@@ -104,6 +104,9 @@ public class Main {
     // Parameters
     var eParam0 = symbolFactory.CreateSymbolParameter("uExitCode", DtInteger.u32);
 
+    var eParam1 = symbolFactory.CreateSymbolParameter("dwFreq", DtInteger.u32);
+    var eParam2 = symbolFactory.CreateSymbolParameter("dwDuration", DtInteger.u32);
+
     // External functions
     var eFunction0 = symbolFactory.CreateSymbolGlobalFunction(
       file0, rootModule, true,
@@ -118,6 +121,19 @@ public class Main {
     file0.functions.add(eFunction0);
     rootModule.functions.add(eFunction0);
 
+    var eFunction1 = symbolFactory.CreateSymbolGlobalFunction(
+      file0, rootModule, true,
+      new FunctionDeclaration(
+        "Beep",
+        CallingConvention.MS_ABI,
+        new IVariable[] { eParam1, eParam2 },
+        new IDataType[0]
+      ),
+      null
+    );
+    file0.functions.add(eFunction1);
+    rootModule.functions.add(eFunction1);
+
     // Functions
     var function0 = symbolFactory.CreateSymbolGlobalFunction(
       file0, rootModule, false,
@@ -131,12 +147,16 @@ public class Main {
     var localVar0 = symbolFactory.CreateSymbolLocalVariable(function0, "temp0", DtInteger.u32);
     function0.locals.add(localVar0);
 
-    var localVar1 = symbolFactory.CreateSymbolLocalVariable(function0, "temp1", DtInteger.i64);
+    var localVar1 = symbolFactory.CreateSymbolLocalVariable(function0, "temp1", DtInteger.u32);
     function0.locals.add(localVar1);
 
     // Code
-    function0.codes.add(new CodeAssign(localVar0, new IntegerConstant("69")));
-    function0.codes.add(new CodeAssign(localVar1, localVar0));
+    function0.codes.add(new CodeAssign(localVar0, new IntegerConstant("800")));
+    //function0.codes.add(new CodeAssign(localVar1, localVar0));
+    function0.codes.add(new CodeAssign(localVar1, new IntegerConstant("2000")));
+    function0.codes.add(new CodeCall(eFunction1, new IVariable[] { localVar0, localVar1 }, new IVariable[0]));
+
+    function0.codes.add(new CodeAssign(localVar0, new IntegerConstant("69420")));
     function0.codes.add(new CodeCall(eFunction0, new IVariable[] { localVar0 }, new IVariable[0]));
     function0.codes.add(new CodeReturn(new IVariable[] { localVar1 }));
 
