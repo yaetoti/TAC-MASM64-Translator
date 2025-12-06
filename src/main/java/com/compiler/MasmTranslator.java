@@ -1,6 +1,7 @@
 package com.compiler;
 
 import com.compiler.codegen.IntegerMoveHandlers;
+import com.compiler.codegen.MasmMoveUtils;
 import com.compiler.codes.CodeAssign;
 import com.compiler.codes.CodeCall;
 import com.compiler.codes.CodeReturn;
@@ -239,7 +240,7 @@ public final class MasmTranslator {
       out.EmitCommentF("-- %s --", code);
       switch (code) {
         case CodeAssign codeAssign -> TranslateCodeAssign(codeAssign, ctx);
-        case CodeCall codeCall -> throw new RuntimeException("Not implemented");
+        case CodeCall codeCall -> TranslateCodeCall(codeCall, ctx);
         case CodeReturn codeReturn -> TranslateCodeReturn(codeReturn, ctx);
       }
     }
@@ -319,7 +320,7 @@ public final class MasmTranslator {
   private void TranslateCodeReturn(CodeReturn code, FunctionContext ctx) {
     switch (ctx.function.declaration.convention()) {
       case MS_ABI -> TranslateCodeReturnMsAbi(code, ctx);
-      default -> throw new RuntimeException("Not implemented");
+      case STACK_CALL -> throw new RuntimeException("Not implemented");
     }
   }
 
@@ -353,5 +354,71 @@ public final class MasmTranslator {
     out.EmitComment("-- Epilogue --");
     out.Emit("pop rbp");
     out.Emit("ret");
+  }
+
+  private void TranslateCodeCall(CodeCall code, FunctionContext ctx) {
+    switch (code.function().GetDeclaration().convention()) {
+      case STACK_CALL -> throw new RuntimeException("Not implemented");
+      case MS_ABI -> TranslateCodeCallMsAbi(code, ctx);
+    }
+  }
+
+  private void TranslateCodeCallMsAbi(CodeCall code, FunctionContext ctx) {
+    // Save volatile registers
+    ctx.registerManager.FlushRegisters();
+
+    // Allocate space for (padding + params + shadow space)
+    int allocSize = Math.max(4, code.params().length) * 8;
+    int padding = ((allocSize + 15) / 16 * 16) - allocSize;
+    int totalAllocSize = allocSize + padding;
+
+    ctx.out.EmitF("sub rsp, %s", totalAllocSize);
+
+    // Move first 4 parameters to registers
+    int registerParamsNumber = Math.min(4, code.params().length);
+    final var gpr = List.of(Register.Type.RCX, Register.Type.RDX, Register.Type.R8, Register.Type.R9);
+
+    for (int i = 0; i < registerParamsNumber; ++i) {
+      var param = code.params()[i];
+      if (MasmTypeUtils.GetStorageClass(param.GetDataType()) == MasmStorageClass.GPR) {
+        ctx.EnsureInRegister(code.params()[i], gpr.get(i));
+        continue;
+      }
+
+      throw new RuntimeException("Not implemented");
+    }
+
+    // Move the remaining parameters to memory
+    var raxRegInfo = ctx.registerManager.Get(Register.Type.RAX);
+    var tempRegInfo = ctx.registerManager.GetFreeRegister();
+    raxRegInfo.isLocked = true;
+    tempRegInfo.isLocked = true;
+
+    // TODO per-byte copy for non-register types
+    for (int i = 4; i < code.params().length; ++i) {
+      var param = code.params()[i];
+      var paramSize = param.GetDataType().GetSize();
+      var paramMemory = new OffsetMemory(paramSize, Register.RSP, null, 0, i * 8);
+      var paramLocation = ctx.memoryManager.Get(param);
+      var reg = Register.Get(tempRegInfo.type, paramSize);
+
+      MasmMoveUtils.MoveToMemory(ctx, paramMemory, paramLocation.memory, reg);
+    }
+
+    tempRegInfo.isLocked = false;
+    raxRegInfo.isLocked = false;
+
+    // Call function
+    // TODO mangling
+    ctx.out.EmitF("call %s", code.function().GetName());
+
+    // Store return value
+    var returnSymbol = code.returnValues()[0];
+    var returnLocation = ctx.memoryManager.Get(returnSymbol);
+    raxRegInfo.symbol = returnSymbol;
+    returnLocation.register = Register.Get(Register.Type.RAX, returnSymbol.GetDataType().GetSize());
+
+    // Free stack memory
+    ctx.out.EmitF("add rsp, %s", totalAllocSize);
   }
 }

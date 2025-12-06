@@ -1,6 +1,7 @@
 package com.compiler.codegen;
 
 import com.compiler.FunctionContext;
+import com.compiler.memory.Memory;
 import com.compiler.memory.Register;
 
 public final class MasmMoveUtils {
@@ -37,5 +38,30 @@ public final class MasmMoveUtils {
     }
 
     ctx.out.EmitF("movzx %s, %s", dst, src);
+  }
+
+  public static void MoveToRegister(FunctionContext ctx, Register dst, Memory src) {
+    // Same size
+    if (dst.size() == src.GetSize()) {
+      ctx.out.EmitF("mov %s, %s", dst, src);
+      return;
+    }
+
+    throw new RuntimeException("Not implemented");
+  }
+
+  public static void MoveToMemory(FunctionContext ctx, Memory dst, Register src) {
+    // Same size
+    if (dst.GetSize() == src.size()) {
+      ctx.out.EmitF("mov %s, %s", dst, src);
+      return;
+    }
+
+    throw new RuntimeException("Not implemented");
+  }
+
+  public static void MoveToMemory(FunctionContext ctx, Memory dst, Memory src, Register tempReg) {
+    MoveToRegister(ctx, tempReg, src);
+    MoveToMemory(ctx, dst, tempReg);
   }
 }

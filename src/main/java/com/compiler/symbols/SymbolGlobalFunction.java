@@ -41,4 +41,9 @@ public final class SymbolGlobalFunction implements IFunction {
   public int hashCode() {
     return Long.hashCode(id);
   }
+
+  @Override
+  public FunctionDeclaration GetDeclaration() {
+    return declaration;
+  }
 }

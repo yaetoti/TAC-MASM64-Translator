@@ -100,6 +100,21 @@ public class Main {
     rootModule.variables.add(importedVar0);
     file0.importedVariables.add(importedVar0);
 
+    // Parameters
+
+
+    // External functions
+    var eFunction0 = symbolFactory.CreateSymbolGlobalFunction(
+      file0, rootModule, true,
+      new FunctionDeclaration(
+        "ExitProcess",
+        CallingConvention.MS_ABI,
+        new IVariable[0],
+        new IDataType[0]
+      ),
+      null
+    );
+
     // Functions
     var function0 = symbolFactory.CreateSymbolGlobalFunction(
       file0, rootModule, false,
