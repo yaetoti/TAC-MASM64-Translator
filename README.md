@@ -7,8 +7,6 @@ A compiler backend written in Java 25 that translates a structured intermediate 
 
 This project implements core compiler components including symbol management, type systems, register allocation, and code generation adhering to the Microsoft x64 Calling Convention.
 
----
-
 ## Motivation
 
 This project marks the next chapter in my research into the world of compiler construction.
@@ -40,8 +38,6 @@ Now, I am exploring the **compiler backend**. At this stage, I have established 
 
 *Optional research goals:* exploring modern memory models (similar to Rust), compiler optimizations, and security vulnerability mitigation on live examples.
 
----
-
 ## Features
 
 - **Program Structure**: Hierarchical organization of code into Programs, Logical Structures (Modules), and Physical Structures (Files).
@@ -58,8 +54,6 @@ Now, I am exploring the **compiler backend**. At this stage, I have established 
     - Targets **MASM (x64)**.
     - Implements **MS ABI** calling convention (handling volatile/non-volatile registers, shadow space, and parameter passing).
     - Supports external symbols and function calls (e.g., Windows API).
-
----
 
 ## Usage
 
@@ -168,8 +162,6 @@ NvOptimusEnabled db 64
 .code
 end
 ```
-
----
 
 ## Technical Details
 
