@@ -18,13 +18,12 @@ While parser generators, intermediate representations, and high-level languages 
 ### Previous Work
 
 My journey began with **compiler frontends**, covering lexical analysis, AST construction, and interpretation:
-*   I started with a complex calculator.
-*   Progressed to a truth-table generator for logical expressions.
+*   I started with a [complex calculator](https://github.com/yaetoti/Parsers-CPP).
+*   Progressed to a [truth-table generator for logical expressions](https://github.com/yaetoti/Parsers-CPP).
 *   Culminated in a custom interpreted language designed to solve a specific [CodinGame challenge](https://www.codingame.com/training/medium/complicated-interpreter/solution?id=36799323).
-  *   [Link to Repository]
 
 Later, I explored methods to accelerate parser development and improve error readability. I built a **Sprache-like parser combinator in C#** from scratch, implementing chained parser functions, enhanced error reporting, and greedy lexeme matching.
-*   [Link to Repository]
+*   [TODO: Link to Repository]
 
 ### Current Focus & Roadmap
 
@@ -71,6 +70,22 @@ To run the project:
 1. Ensure you have **Java 25** installed.
 2. Compile and run `com.compiler.Main`.
 3. The generated MASM assembly will be output to the console.
+
+### Compiling Generated Assembly
+
+The compiler outputs x64 MASM code. To create an executable on Windows, use `ml64.exe` (Microsoft Macro Assembler) and `link.exe`, which are included with Visual Studio (Visual C++ Build Tools).
+
+1.  Run the **x64 Native Tools Command Prompt for VS 20xx**.
+2.  Save the generated output into `.asm` files (e.g., `file0.asm`, `file1.asm`).
+3.  Compile and link using the following commands:
+
+```cmd
+ml64 /c file0.asm
+ml64 /c file1.asm
+link file0.obj file1.obj kernel32.lib /entry:main /subsystem:console /out:program.exe
+
+./program.exe
+```
 
 ### Example Construction
 
