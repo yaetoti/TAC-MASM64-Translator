@@ -6,19 +6,15 @@ import com.compiler.symbols.IVariable;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 
+// TODO LRU
+
 public class RegisterManager {
-  // TODO LRU
-  // TODO add all registers
-  public FunctionContext ctx;
-  public LinkedHashMap<Register.Type, RegisterInfo> registers = new LinkedHashMap<>();
+  private final FunctionContext ctx;
+  private final LinkedHashMap<Register.Type, RegisterInfo> registers = new LinkedHashMap<>();
 
   public RegisterManager(FunctionContext ctx) {
     this.ctx = ctx;
-    Clear();
-  }
 
-  public void Clear() {
-    registers.clear();
     for (var type : Register.Type.values()) {
       if (type == Register.Type.RBP || type == Register.Type.RSP) {
         continue;
@@ -32,18 +28,31 @@ public class RegisterManager {
     return registers.get(type);
   }
 
-  public void PutVariable(IVariable symbol, Register.Type type) {
-    registers.get(type).symbol = symbol;
-  }
+  public RegisterInfo GetFreeRegister(Register.Bank bank) {
+    for (var entry : registers.entrySet()) {
+      var info = entry.getValue();
 
-  public ArrayList<RegisterInfo> GetRegisters() {
-    return new ArrayList<>(registers.values());
+      // Filter by bank
+      if (bank != null && bank != info.GetType().GetBank()) {
+        continue;
+      }
+
+      // Return the first free register
+      if (!info.IsOccupied()) {
+        return info;
+      }
+    }
+
+    // Flush and return the first free register
+    var registers = FlushRegisters(1, bank);
+    return registers.getFirst();
   }
 
   public ArrayList<RegisterInfo> GetFreeRegisters() {
     var freeRegisters = new ArrayList<RegisterInfo>();
     for (var entry : registers.entrySet()) {
-      if (!entry.getValue().isLocked && entry.getValue().symbol == null) {
+      var info = entry.getValue();
+      if (!info.IsOccupied()) {
         freeRegisters.add(entry.getValue());
       }
     }
@@ -51,34 +60,28 @@ public class RegisterManager {
     return freeRegisters;
   }
 
-  public RegisterInfo GetFreeRegister() {
-    for (var entry : registers.entrySet()) {
-      if (!entry.getValue().isLocked && entry.getValue().symbol == null) {
-        return entry.getValue();
-      }
-    }
-
-    // Spill
-    var registers = FlushRegisters(1);
-    return registers.getFirst();
-  }
-
-  public ArrayList<RegisterInfo> GetFreeRegisters(int amount) {
+  public ArrayList<RegisterInfo> GetFreeRegisters(int amount, Register.Bank bank) {
     var freeRegisters = new ArrayList<RegisterInfo>();
 
     for (var entry : registers.entrySet()) {
+      // Already enough
       if (freeRegisters.size() >= amount) {
         break;
       }
 
-      if (!entry.getValue().isLocked && entry.getValue().symbol == null) {
-        freeRegisters.add(entry.getValue());
+      var info = entry.getValue();
+
+      // Occupied or bank mismatch
+      if (info.IsOccupied() || (bank != null && bank != info.GetType().GetBank())) {
+        continue;
       }
+
+      freeRegisters.add(entry.getValue());
     }
 
-    // Spill
+    // Flush if needed
     if (freeRegisters.size() != amount) {
-      var registers = FlushRegisters(amount - freeRegisters.size());
+      var registers = FlushRegisters(amount - freeRegisters.size(), bank);
       freeRegisters.addAll(registers);
     }
 
@@ -87,11 +90,9 @@ public class RegisterManager {
 
   public void FlushRegister(Register.Type type) {
     var regInfo = registers.get(type);
-    if (regInfo.isLocked) {
-      throw new RuntimeException("Cannot spill locked register");
-    }
+    assert !regInfo.IsOccupied() : "Cannot flush locked register";
 
-    // Already spilled
+    // Already flushed
     if (regInfo.symbol == null) {
       return;
     }
@@ -105,66 +106,51 @@ public class RegisterManager {
     // Find candidates
     for (var entry : registers.entrySet()) {
       var info = entry.getValue();
-      // Locked registers must be unlocked manually
-      if (info.isLocked) {
-        throw new RuntimeException("Cannot spill locked register");
-      }
 
       // Already free
       if (info.symbol == null) {
         continue;
       }
 
-      // TODO. Only if we call it FreeAllRegisters. But what if we need that data? We need to allocate a new memory and we do not do that
-      var location = memoryManager.locations.get(info.symbol);
-      if (location.memory == null) {
-        throw new RuntimeException("Cannot spill register that does not have a memory location");
-      }
-
-      // Spill
-      ctx.out.EmitF("mov %s, %s", location.memory, location.register);
-      info.symbol = null;
-      location.register = null;
-      location.isDirty = false;
+      ctx.Flush(info.GetSymbol());
     }
   }
 
-  public ArrayList<RegisterInfo> FlushRegisters(int amount) {
-    var memoryManager = ctx.memoryManager;
+  public ArrayList<RegisterInfo> FlushRegisters(int amount, Register.Bank bank) {
+    var mm = ctx.memoryManager;
     var candidates = new ArrayList<RegisterInfo>();
 
     // Find candidates
     for (var entry : registers.entrySet()) {
+      // Already enough
       if (candidates.size() >= amount) {
         break;
       }
 
-      var type = entry.getKey();
       var info = entry.getValue();
 
+      // Filter by bank
+      if (bank != null && bank != info.GetType().GetBank()) {
+        continue;
+      }
+
       // If locked or assigned to a symbol that does not have a memory location - continue
-      // TODO lazy allocation
-      if (info.isLocked || (info.symbol != null && memoryManager.locations.get(info.symbol).memory == null)) {
+      if (info.IsLocked() || mm.GetMemoryLocation(info.GetSymbol()) == null) {
+        // TODO potential spill
         continue;
       }
 
       candidates.add(info);
     }
 
+    // Not enough registers
     if (candidates.size() != amount) {
-      throw new IllegalStateException("Not enough free registers to spill");
+      throw new RuntimeException("Not enough free registers to flush");
     }
 
-    // Spill
+    // Flush
     for (var info : candidates) {
-      var location = memoryManager.locations.get(info.symbol);
-
-      // TODO different for float
-      ctx.out.EmitF("mov %s, %s", location.memory, location.register);
-
-      info.symbol = null;
-      location.register = null;
-      location.isDirty = false;
+      ctx.Flush(info.GetSymbol());
     }
 
     return candidates;

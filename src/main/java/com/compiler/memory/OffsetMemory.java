@@ -2,12 +2,21 @@ package com.compiler.memory;
 
 import com.compiler.utils.MasmStringUtils;
 
+// TODO rip-relative mapping. only 32 or 8 bit offset. Assert in constructor
+
 public record OffsetMemory(int size, Register base, Register index, int scale, int offset) implements Memory {
   @Override
   public String toString() {
     StringBuilder sb = new StringBuilder();
-    sb.append(MasmStringUtils.GetTypeString(size));
-    sb.append(" ptr [");
+
+    var typeString = MasmStringUtils.GetTypeString(size);
+    if (typeString != null) {
+      sb.append(typeString);
+      sb.append(" ptr ");
+    }
+
+    sb.append("[");
+
     // Base
     if (base != null) {
       // Base

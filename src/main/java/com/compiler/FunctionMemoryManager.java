@@ -1,6 +1,6 @@
 package com.compiler;
 
-import com.compiler.symbols.ISymbol;
+import com.compiler.memory.Memory;
 import com.compiler.symbols.IVariable;
 
 import java.util.HashMap;
@@ -14,5 +14,14 @@ public class FunctionMemoryManager {
 
   public SymbolLocation Set(IVariable symbol, SymbolLocation location) {
     return locations.put(symbol, location);
+  }
+
+  public Memory GetMemoryLocation(IVariable symbol) {
+    var location = Get(symbol);
+    if (location == null) {
+      return null;
+    }
+
+    return location.memory;
   }
 }

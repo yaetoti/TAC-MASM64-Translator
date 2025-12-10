@@ -33,7 +33,6 @@ public final class MasmStringUtils {
       case DtPointer dtPointer -> {
         return DQ;
       }
-      default -> throw new IllegalStateException("Unexpected type: " + type);
     }
   }
 
@@ -41,7 +40,6 @@ public final class MasmStringUtils {
     return switch (type) {
       case DtInteger dtInteger -> GetTypeString(dtInteger.GetSize());
       case DtPointer dtPointer -> QWORD;
-      default -> throw new IllegalStateException("Unexpected type: " + type);
     };
   }
 
@@ -51,12 +49,12 @@ public final class MasmStringUtils {
       case 2 -> WORD;
       case 4 -> DWORD;
       case 8 -> QWORD;
-      default -> throw new IllegalStateException("Unexpected size: " + size);
+      default -> null;
     };
   }
 
   public static String GetConstantString(IConstant constant) {
-    // TODO mov rax, ? ; bruh..
+    // TODO mov rax, ? ; bruh.. move that to HandleDeclaration
     if (constant == null) {
       return "?";
     }

@@ -13,4 +13,34 @@ public class RegisterInfo {
   public RegisterInfo(Register.Type type) {
     this.type = type;
   }
+
+  public Register.Type GetType() {
+    return type;
+  }
+
+  public IVariable GetSymbol() {
+    return symbol;
+  }
+
+  public void SetSymbol(IVariable symbol) {
+    this.symbol = symbol;
+  }
+
+  public void Lock() {
+    assert !isLocked : "Register was already locked";
+    isLocked = true;
+  }
+
+  public void Unlock() {
+    assert isLocked : "Register was already unlocked";
+    isLocked = false;
+  }
+
+  public boolean IsLocked() {
+    return isLocked;
+  }
+
+  public boolean IsOccupied() {
+    return isLocked || symbol != null;
+  }
 }

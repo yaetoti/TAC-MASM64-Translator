@@ -91,8 +91,6 @@ public final class MasmTranslator {
 
     out.EmitNL();
 
-    // TODO External functions
-
     // === DATA ===
     out.Emit(".data");
 
@@ -225,15 +223,13 @@ public final class MasmTranslator {
 
       // Set register + move to shadow space
       if (reg != null) {
-        ctx.registerManager.PutVariable(param, reg.type());
+        ctx.registerManager.Get(reg.type()).SetSymbol(param);
 
         // TODO no.
         // Move to shadow space
         //ctx.out.EmitF("mov %s, %s", location.memory, reg);
       }
     }
-
-    // TODO should I do it here or before function calls?
 
     // Code
     for (var code : function.codes) {
@@ -263,6 +259,9 @@ public final class MasmTranslator {
 //    out.EmitComment("-- Epilogue --");
 //    out.Emit("pop rbp");
   }
+
+  // TODO move to a separate file. Allow emitting it anywhere
+  // TODO also add move constant to registers, to memory
 
   private void EmitMove(IVariable dst, IOperand src, FunctionContext ctx) {
     switch (src) {
@@ -327,7 +326,7 @@ public final class MasmTranslator {
 
   private void TranslateCodeReturnMsAbi(CodeReturn code, FunctionContext ctx) {
     // Free all registers
-    out.EmitComment("-- Spill all registers --");
+    out.EmitComment("-- Flush all registers --");
     ctx.registerManager.FlushRegisters();
 
     // Move the result to rax
@@ -339,7 +338,6 @@ public final class MasmTranslator {
     }
 
     // TODO may be useful to clean that information
-    // TODO here we must spill everything to memory
     // Pop non-volatile registers
     out.EmitComment("-- Restore non-volatile registers --");
     out.Emit("lea rsp, [rbp - 56]");
@@ -391,30 +389,30 @@ public final class MasmTranslator {
     }
 
     // Move the remaining parameters to memory
-    var raxRegInfo = ctx.registerManager.Get(Register.Type.RAX);
-    var tempRegInfo = ctx.registerManager.GetFreeRegister();
-    raxRegInfo.isLocked = true;
-    tempRegInfo.isLocked = true;
+
+    var tempRegInfo = ctx.registerManager.GetFreeRegister(Register.Bank.GPR);
+    tempRegInfo.Lock();
 
     // TODO per-byte copy for non-register types
     for (int i = 4; i < code.params().length; ++i) {
+      // Move param to memory location
       var param = code.params()[i];
       var paramSize = param.GetDataType().GetSize();
-      var paramMemory = new OffsetMemory(paramSize, Register.RSP, null, 0, i * 8);
-      var paramLocation = ctx.memoryManager.Get(param);
-      var reg = Register.Get(tempRegInfo.type, paramSize);
+      var dstMemory = new OffsetMemory(paramSize, Register.RSP, null, 0, i * 8);
+      var srcMemory = ctx.memoryManager.GetMemoryLocation(param);
 
-      MasmMoveUtils.MoveToMemory(ctx, paramMemory, paramLocation.memory, reg);
+      var reg = Register.Get(tempRegInfo.type, paramSize);
+      MasmMoveUtils.MoveToMemory(ctx, dstMemory, srcMemory, reg);
     }
 
-    tempRegInfo.isLocked = false;
-    raxRegInfo.isLocked = false;
+    tempRegInfo.Unlock();
 
     // Call function
     // TODO mangling
     ctx.out.EmitF("call %s", code.function().GetName());
 
     // Store return value
+    var raxRegInfo = ctx.registerManager.Get(Register.Type.RAX);
     if (code.returnValues().length != 0) {
       var returnSymbol = code.returnValues()[0];
       var returnLocation = ctx.memoryManager.Get(returnSymbol);

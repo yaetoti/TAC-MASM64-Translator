@@ -7,7 +7,6 @@ import com.compiler.structure.Module;
 
 import java.util.ArrayList;
 
-// TODO add code
 // TODO add variables
 public final class SymbolGlobalFunction implements IFunction {
   public long id;

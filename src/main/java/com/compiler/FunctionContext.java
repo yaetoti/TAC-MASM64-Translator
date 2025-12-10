@@ -37,18 +37,16 @@ public class FunctionContext {
     return stackSize;
   }
 
-  // Return existing register or allocate a new one for writing (without moving from memory to register)
+  // Return an existing register or allocate a new one for writing (without moving from memory to register)
   public Register DefineRegister(IVariable symbol) {
-    if (MasmTypeUtils.GetStorageClass(symbol.GetDataType()) == MasmStorageClass.MEMORY) {
-      throw new RuntimeException("Cannot define register for memory variable");
-    }
+    assert MasmTypeUtils.GetStorageClass(symbol.GetDataType()) != MasmStorageClass.MEMORY : "Cannot define register for memory variable";
 
     var location = memoryManager.Get(symbol);
 
     if (location.register == null) {
-      var regInfo = registerManager.GetFreeRegister();
+      var regInfo = registerManager.GetFreeRegister(MasmTypeUtils.GetBank(symbol.GetDataType()));
       regInfo.symbol = symbol;
-      location.register = Register.Get(regInfo.type, symbol.GetDataType().GetSize());
+      location.register = MasmTypeUtils.GetRegister(regInfo.type, symbol.GetDataType());
     }
 
     return location.register;
@@ -56,30 +54,23 @@ public class FunctionContext {
 
   // Return existing register or allocate a new one for reading (with moving data from memory to register)
   public Register EnsureInRegister(IVariable symbol) {
-    if (MasmTypeUtils.GetStorageClass(symbol.GetDataType()) == MasmStorageClass.MEMORY) {
-      throw new RuntimeException("Cannot define register for memory variable");
-    }
+    assert MasmTypeUtils.GetStorageClass(symbol.GetDataType()) != MasmStorageClass.MEMORY : "Cannot define register for memory variable";
 
     var location = memoryManager.Get(symbol);
 
     if (location.register == null) {
-      var regInfo = registerManager.GetFreeRegister();
-      regInfo.symbol = symbol;
-      location.register = Register.Get(regInfo.type, symbol.GetDataType().GetSize());
-
-      // Load into register
-      out.EmitF("mov %s, %s", location.register, location.memory);
+      var reg = DefineRegister(symbol);
+      // TODO replace move
+      out.EmitF("mov %s, %s", reg, location.memory);
     }
 
     return location.register;
   }
 
   // Move the symbols to a specific register for reading (it must be free)
-  // TODO here we must spill occupied register
   public Register EnsureInRegister(IVariable symbol, Register.Type regType) {
-    if (MasmTypeUtils.GetStorageClass(symbol.GetDataType()) == MasmStorageClass.MEMORY) {
-      throw new RuntimeException("Cannot allocate a register for memory variable");
-    }
+    assert MasmTypeUtils.GetStorageClass(symbol.GetDataType()) != MasmStorageClass.MEMORY : "Cannot define register for memory variable";
+    assert MasmTypeUtils.GetBank(symbol.GetDataType()) == regType.GetBank() : "Cannot move to a different register bank";
 
     var location = memoryManager.Get(symbol);
     var regInfo = registerManager.Get(regType);
@@ -94,7 +85,7 @@ public class FunctionContext {
       throw new RuntimeException("Cannot allocate a locked register");
     }
 
-    // If the register is occupied - spill
+    // If the register is occupied - flush
     if (regInfo.symbol != null) {
       Flush(regInfo.symbol);
     }
@@ -105,6 +96,7 @@ public class FunctionContext {
     var newReg = Register.Get(regInfo.type, symbol.GetDataType().GetSize());
 
     // Move to the new location
+    // TODO replace move
     out.EmitF("mov %s, %s", newReg, oldLocation);
     location.register = newReg;
     regInfo.symbol = symbol;
@@ -134,6 +126,7 @@ public class FunctionContext {
       throw new RuntimeException("Cannot spill register without memory location");
     }
 
+    // TODO depends on register
     // Spill
     out.EmitF("mov %s, %s", location.memory, location.register);
     location.register = null;

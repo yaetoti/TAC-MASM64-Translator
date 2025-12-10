@@ -6,6 +6,7 @@ public final class SymbolParameter implements IVariable {
   public long id;
   public String name;
   public IDataType type;
+  // TODO add parent function
 
   SymbolParameter(long id, String name, IDataType type) {
     this.id = id;
