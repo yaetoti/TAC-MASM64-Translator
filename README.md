@@ -75,7 +75,7 @@ To run the project:
 ### Example Construction
 
 The `test1` method in `Main.java` constructs a program that essentially performs the following logic:
-```java
+```
 extern void ExitProcess(u32 uExitCode);
 extern void Beep(u32 dwFreq, u32 dwDuration);
 
@@ -96,7 +96,7 @@ The translator converts this into x64 assembly, handling:
 
 The generated assembly is as follows:
 
-**file0.y**:
+**file0.asm**:
 
 ```asm
 public number0
@@ -153,9 +153,9 @@ main endp
 end
 ```
 
-**file1.y**:
+**file1.asm**:
 
-```
+```asm
 public NvOptimusEnabled
 .data
 NvOptimusEnabled db 64
