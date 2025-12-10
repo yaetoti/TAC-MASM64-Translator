@@ -1,5 +1,8 @@
 # TAC to MASM64 Translator
 
+![Java](https://img.shields.io/badge/Java-25-ED8B00?style=flat-square&logo=openjdk&logoColor=white)
+![MASM](https://img.shields.io/badge/Target-MASM_x64-blue?style=flat-square)
+
 A compiler backend written in Java 25 that translates a structured intermediate representation (IR) into x64 Microsoft Macro Assembler (MASM) code.
 
 This project implements core compiler components including symbol management, type systems, register allocation, and code generation adhering to the Microsoft x64 Calling Convention.
