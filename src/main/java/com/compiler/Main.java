@@ -3,15 +3,22 @@ package com.compiler;
 // TAC
 
 
-import com.compiler.codes.CodeAssign;
-import com.compiler.codes.CodeCall;
-import com.compiler.codes.CodeReturn;
-import com.compiler.structure.*;
-import com.compiler.structure.Module;
-import com.compiler.symbols.*;
-import com.compiler.types.DtInteger;
-import com.compiler.types.DtPointer;
-import com.compiler.types.IDataType;
+import com.compiler.ir.CallingConvention;
+import com.compiler.ir.FunctionDeclaration;
+import com.compiler.ir.codes.CodeAssign;
+import com.compiler.ir.codes.CodeCall;
+import com.compiler.ir.codes.CodeReturn;
+import com.compiler.ir.structure.File;
+import com.compiler.ir.structure.Program;
+import com.compiler.ir.symbols.IVariable;
+import com.compiler.ir.symbols.IntegerConstant;
+import com.compiler.ir.symbols.PointerConstant;
+import com.compiler.ir.symbols.SymbolFactory;
+import com.compiler.ir.structure.Module;
+import com.compiler.ir.types.DtInteger;
+import com.compiler.ir.types.DtPointer;
+import com.compiler.ir.types.IDataType;
+import com.compiler.translator.masm.MasmTranslator;
 import com.compiler.utils.Timer;
 
 import java.util.*;
@@ -37,23 +44,16 @@ public class Main {
   static void test1() {
     // Program
     var program = new Program();
-
-    // Structures
-    var logicalStructure = new LogicalStructure();
-    logicalStructure.parentProgram = program;
-    program.logicalStructure = logicalStructure;
-
-    var physicalStructure = new PhysicalStructure();
-    physicalStructure.parentProgram = program;
-    program.physicalStructure = physicalStructure;
+    var logicalStructure = program.logicalStructure;
+    var physicalStructure = program.physicalStructure;
 
     // Modules
-    var rootModule = new com.compiler.structure.Module();
+    var rootModule = new Module();
     logicalStructure.rootModule = rootModule;
     rootModule.parentProgram = program;
     rootModule.parentStructure = logicalStructure;
 
-    var module0 = new com.compiler.structure.Module();
+    var module0 = new Module();
     rootModule.childModules.add(module0);
     module0.parentProgram = program;
     module0.parentStructure = logicalStructure;
