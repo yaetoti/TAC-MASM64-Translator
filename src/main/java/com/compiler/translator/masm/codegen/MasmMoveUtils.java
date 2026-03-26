@@ -1,6 +1,6 @@
 package com.compiler.translator.masm.codegen;
 
-import com.compiler.ir.FunctionContext;
+import com.compiler.translator.masm.context.FunctionContext;
 import com.compiler.translator.masm.memory.Memory;
 import com.compiler.translator.masm.memory.Register;
 

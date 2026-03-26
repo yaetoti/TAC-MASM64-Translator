@@ -1,18 +1,17 @@
 package com.compiler.translator.masm.utils;
 
+import com.compiler.ir.types.*;
 import com.compiler.translator.masm.memory.MasmStorageClass;
 import com.compiler.translator.masm.memory.Register;
-import com.compiler.ir.types.DtFloat;
-import com.compiler.ir.types.DtInteger;
-import com.compiler.ir.types.DtPointer;
-import com.compiler.ir.types.IDataType;
 
 public final class MasmTypeUtils {
   public static MasmStorageClass GetStorageClass(IDataType type) {
     return switch (type) {
       case DtInteger dtInteger -> MasmStorageClass.GPR;
       case DtPointer dtPointer -> MasmStorageClass.GPR;
+      case DtArray dtArray -> MasmStorageClass.GPR;
       case DtFloat dtFloat -> MasmStorageClass.VEC;
+      default -> throw new IllegalStateException("Unexpected value: " + type);
     };
   }
 
@@ -20,7 +19,9 @@ public final class MasmTypeUtils {
     return switch (type) {
       case DtInteger dtInteger -> Register.Bank.GPR;
       case DtPointer dtPointer -> Register.Bank.GPR;
+      case DtArray dtArray -> Register.Bank.GPR;
       case DtFloat dtFloat -> Register.Bank.VEC;
+      default -> throw new IllegalStateException("Unexpected value: " + type);
     };
   }
 

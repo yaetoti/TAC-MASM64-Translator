@@ -14,6 +14,8 @@ public final class MasmStringUtils {
   private static final String DW = "dw";
   private static final String DD = "dd";
   private static final String DQ = "dq";
+  private static final String DREAL4 = "real4";
+  private static final String DREAL8 = "real8";
 
   private static final String BYTE = "byte";
   private static final String WORD = "word";
@@ -38,8 +40,8 @@ public final class MasmStringUtils {
       }
       case DtFloat dtFloat -> {
         return switch(dtFloat.GetSize()) {
-          case 4 -> DD;
-          case 8 -> DQ;
+          case 4 -> DREAL4;
+          case 8 -> DREAL8;
           default -> throw new IllegalStateException("Unexpected size: " + dtFloat.GetSize());
         };
       }

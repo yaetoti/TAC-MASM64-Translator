@@ -1,12 +1,14 @@
 package com.compiler.translator.masm;
 
-import com.compiler.ir.FunctionContext;
+import com.compiler.ir.codes.*;
+import com.compiler.ir.types.DtArray;
 import com.compiler.translator.masm.codegen.IntegerMoveHandlers;
 import com.compiler.translator.masm.codegen.MasmMoveUtils;
-import com.compiler.ir.codes.CodeAssign;
-import com.compiler.ir.codes.CodeCall;
-import com.compiler.ir.codes.CodeReturn;
 import com.compiler.ir.symbols.*;
+import com.compiler.translator.masm.context.FunctionContext;
+import com.compiler.translator.masm.context.FunctionMemoryManager;
+import com.compiler.translator.masm.context.RegisterManager;
+import com.compiler.translator.masm.context.SymbolLocation;
 import com.compiler.translator.masm.memory.MasmStorageClass;
 import com.compiler.translator.masm.memory.OffsetMemory;
 import com.compiler.translator.masm.memory.Register;
@@ -236,9 +238,11 @@ public final class MasmTranslator {
     for (var code : function.codes) {
       out.EmitCommentF("-- %s --", code);
       switch (code) {
-        case CodeAssign codeAssign -> TranslateCodeAssign(codeAssign, ctx);
-        case CodeCall codeCall -> TranslateCodeCall(codeCall, ctx);
-        case CodeReturn codeReturn -> TranslateCodeReturn(codeReturn, ctx);
+        case CodeAssign specificCode -> TranslateCodeAssign(specificCode, ctx);
+        case CodeCall specificCode -> TranslateCodeCall(specificCode, ctx);
+        case CodeReturn specificCode -> TranslateCodeReturn(specificCode, ctx);
+        case CodeAssignArrayElement specificCode -> TranslateCodeAssignArrayElement(specificCode, ctx);
+        case CodeLoadAddress specificCode -> TranslateCodeLoadAddress(specificCode, ctx);
       }
       out.EmitNL();
     }
@@ -318,6 +322,57 @@ public final class MasmTranslator {
 
   private void TranslateCodeAssign(CodeAssign code, FunctionContext ctx) {
     EmitMove(code.dst(), code.src(), ctx);
+  }
+
+  private void TranslateCodeLoadAddress(CodeLoadAddress code, FunctionContext ctx) {
+    var reg = ctx.DefineRegister(code.dst());
+    var memory = ctx.memoryManager.GetMemoryLocation(code.src());
+
+    ctx.out.EmitComment("-- Load Address --");
+    ctx.out.EmitF("lea %s, %s", reg, memory);
+    ctx.out.EmitNL();
+  }
+
+  private void TranslateCodeAssignArrayElement(CodeAssignArrayElement code, FunctionContext ctx) {
+    // Array is an address, that is stored either in register either in memory. Should be in register
+    // A compiler can calculate index manually if we know the type
+    // Conversion is not our concern, it is a separate code
+    // TODO Only primitive types can be performed with mov. Moving arrays or structs is a non-trivial operation that will be implemented later
+
+    // mov [rbx + rcx * 8], rcx
+    // mov [rbx + rcx * 8], [rcx]
+    // mov [rbx + rcx * 8], 12
+
+    var baseReg = ctx.EnsureInRegister(code.basePointer());
+    var baseRegInfo = ctx.registerManager.Get(baseReg.type());
+    baseRegInfo.Lock();
+
+    if (!(code.index() instanceof IntegerConstant index)) {
+      throw new IllegalStateException("Not implemented");
+    }
+
+    switch (code.value()) {
+      case IConstant iConstant -> {
+        switch (iConstant) {
+          case FloatConstant floatConstant -> {
+            throw new IllegalStateException("Not implemented");
+          }
+          case IntegerConstant integerConstant -> {
+            var elementSize = integerConstant.type().GetSize();
+
+            ctx.out.EmitF("mov %s, %s", new OffsetMemory(elementSize, baseReg, null, 0, elementSize * Integer.parseInt(index.value())), integerConstant.value());
+          }
+          case PointerConstant pointerConstant -> {
+            throw new IllegalStateException("Not implemented");
+          }
+        }
+      }
+      case ISymbol iSymbol -> {
+        throw new IllegalStateException("Not implemented");
+      }
+    }
+
+    baseRegInfo.Unlock();
   }
 
   private void TranslateCodeReturn(CodeReturn code, FunctionContext ctx) {

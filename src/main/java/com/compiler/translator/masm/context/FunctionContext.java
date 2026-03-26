@@ -1,7 +1,5 @@
-package com.compiler.ir;
+package com.compiler.translator.masm.context;
 
-import com.compiler.translator.masm.FunctionMemoryManager;
-import com.compiler.translator.masm.RegisterManager;
 import com.compiler.translator.masm.memory.MasmStorageClass;
 import com.compiler.translator.masm.memory.Register;
 import com.compiler.ir.symbols.IVariable;

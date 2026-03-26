@@ -1,4 +1,4 @@
 package com.compiler.ir.codes;
 
-public sealed interface ICode permits CodeAssign, CodeCall, CodeReturn {}
+public sealed interface ICode permits CodeAssign, CodeAssignArrayElement, CodeCall, CodeLoadAddress, CodeReturn {}
 

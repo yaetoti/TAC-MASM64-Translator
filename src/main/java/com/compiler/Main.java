@@ -5,19 +5,12 @@ package com.compiler;
 
 import com.compiler.ir.CallingConvention;
 import com.compiler.ir.FunctionDeclaration;
-import com.compiler.ir.codes.CodeAssign;
-import com.compiler.ir.codes.CodeCall;
-import com.compiler.ir.codes.CodeReturn;
+import com.compiler.ir.codes.*;
 import com.compiler.ir.structure.File;
 import com.compiler.ir.structure.Program;
-import com.compiler.ir.symbols.IVariable;
-import com.compiler.ir.symbols.IntegerConstant;
-import com.compiler.ir.symbols.PointerConstant;
-import com.compiler.ir.symbols.SymbolFactory;
+import com.compiler.ir.symbols.*;
 import com.compiler.ir.structure.Module;
-import com.compiler.ir.types.DtInteger;
-import com.compiler.ir.types.DtPointer;
-import com.compiler.ir.types.IDataType;
+import com.compiler.ir.types.*;
 import com.compiler.translator.masm.MasmTranslator;
 import com.compiler.utils.Timer;
 
@@ -79,7 +72,7 @@ public class Main {
     var symbolFactory = new SymbolFactory();
 
     // Variables
-    var globalVar0 = symbolFactory.CreateSymbolGlobalVariable(file0, rootModule, false, false, "number0", DtInteger.i8, new IntegerConstant("64"));
+    var globalVar0 = symbolFactory.CreateSymbolGlobalVariable(file0, rootModule, false, false, "number0", DtInteger.i8, new IntegerConstant("64", DtInteger.i8));
     file0.variables.add(globalVar0);
     rootModule.variables.add(globalVar0);
 
@@ -91,12 +84,16 @@ public class Main {
     file0.variables.add(globalVar2);
     rootModule.variables.add(globalVar2);
 
+    var globalVar3 = symbolFactory.CreateSymbolGlobalVariable(file0, rootModule, true, false, "fp1", DtFloat.f32, new FloatConstant("123.45"));
+    file0.variables.add(globalVar3);
+    rootModule.variables.add(globalVar3);
+
     var staticVar0 = symbolFactory.CreateSymbolGlobalVariable(file0, rootModule, true, false, "sNumber0", new DtPointer(DtInteger.i8), new PointerConstant(globalVar0));
     file0.variables.add(staticVar0);
     rootModule.variables.add(staticVar0);
 
     // TODO test imported
-    var importedVar0 = symbolFactory.CreateSymbolGlobalVariable(file1, rootModule, false, false, "NvOptimusEnabled", DtInteger.i8, new IntegerConstant("64"));
+    var importedVar0 = symbolFactory.CreateSymbolGlobalVariable(file1, rootModule, false, false, "NvOptimusEnabled", DtInteger.i8, new IntegerConstant("64", DtInteger.i8));
     file1.variables.add(importedVar0);
     rootModule.variables.add(importedVar0);
     file0.importedVariables.add(importedVar0);
@@ -106,6 +103,11 @@ public class Main {
 
     var eParam1 = symbolFactory.CreateSymbolParameter("dwFreq", DtInteger.u32);
     var eParam2 = symbolFactory.CreateSymbolParameter("dwDuration", DtInteger.u32);
+
+    var eParam3 = symbolFactory.CreateSymbolParameter("hWnd", DtInteger.u64);
+    var eParam4 = symbolFactory.CreateSymbolParameter("lpText", DtInteger.u64);
+    var eParam5 = symbolFactory.CreateSymbolParameter("lpCaption", DtInteger.u64);
+    var eParam6 = symbolFactory.CreateSymbolParameter("uType", DtInteger.u32);
 
     // External functions
     var eFunction0 = symbolFactory.CreateSymbolGlobalFunction(
@@ -134,6 +136,19 @@ public class Main {
     file0.functions.add(eFunction1);
     rootModule.functions.add(eFunction1);
 
+    var eFunction2 = symbolFactory.CreateSymbolGlobalFunction(
+      file0, rootModule, true,
+      new FunctionDeclaration(
+        "MessageBoxA",
+        CallingConvention.MS_ABI,
+        new IVariable[] { eParam3, eParam4, eParam5, eParam6 },
+        new IDataType[] { DtInteger.i32 }
+      ),
+      null
+    );
+    file0.functions.add(eFunction2);
+    rootModule.functions.add(eFunction2);
+
     // Functions
     var function0 = symbolFactory.CreateSymbolGlobalFunction(
       file0, rootModule, false,
@@ -150,14 +165,53 @@ public class Main {
     var localVar1 = symbolFactory.CreateSymbolLocalVariable(function0, "temp1", DtInteger.u32);
     function0.locals.add(localVar1);
 
+    var localVar2 = symbolFactory.CreateSymbolLocalVariable(function0, "uType", DtInteger.u32);
+    function0.locals.add(localVar2);
+
+    var localVar3 = symbolFactory.CreateSymbolLocalVariable(function0, "arr0", new DtArray(DtInteger.u8, 13));
+    function0.locals.add(localVar3);
+
+    var localVar4 = symbolFactory.CreateSymbolLocalVariable(function0, "arrPtr", new DtPointer(DtInteger.u8));
+    function0.locals.add(localVar4);
+
+    var localVar5 = symbolFactory.CreateSymbolLocalVariable(function0, "handle", DtInteger.u64);
+    function0.locals.add(localVar5);
+
+    var localVar6 = symbolFactory.CreateSymbolLocalVariable(function0, "result", DtInteger.i32);
+    function0.locals.add(localVar6);
+
     // Code
-    function0.codes.add(new CodeAssign(localVar0, new IntegerConstant("800")));
-    //function0.codes.add(new CodeAssign(localVar1, localVar0));
-    function0.codes.add(new CodeAssign(localVar1, new IntegerConstant("2000")));
+    function0.codes.add(new CodeAssign(localVar0, new IntegerConstant("800", DtInteger.u32)));
+    function0.codes.add(new CodeAssign(localVar1, new IntegerConstant("2000", DtInteger.u32)));
     function0.codes.add(new CodeCall(eFunction1, new IVariable[] { localVar0, localVar1 }, new IVariable[0]));
 
-    function0.codes.add(new CodeAssign(localVar0, new IntegerConstant("69420")));
-    function0.codes.add(new CodeCall(eFunction0, new IVariable[] { localVar0 }, new IVariable[0]));
+    // Call MessageBoxA
+    function0.codes.add(new CodeAssign(localVar2, new IntegerConstant("0", DtInteger.u32)));
+    function0.codes.add(new CodeAssign(localVar5, new IntegerConstant("0", DtInteger.u64)));
+
+    // Fill a basePointer with "Hello, world"
+    // 72 101 108 108 111 44 32 119 111 114 108 100
+    function0.codes.add(new CodeLoadAddress(localVar4, localVar3));
+
+    // TODO We can do it without LEA, using RBP + (arrayOffset + index * size)
+    function0.codes.add(new CodeAssignArrayElement(localVar4, new IntegerConstant("0", DtInteger.i32), new IntegerConstant("72", DtInteger.u8)));
+    function0.codes.add(new CodeAssignArrayElement(localVar4, new IntegerConstant("1", DtInteger.i32), new IntegerConstant("101", DtInteger.u8)));
+    function0.codes.add(new CodeAssignArrayElement(localVar4, new IntegerConstant("2", DtInteger.i32), new IntegerConstant("108", DtInteger.u8)));
+    function0.codes.add(new CodeAssignArrayElement(localVar4, new IntegerConstant("3", DtInteger.i32), new IntegerConstant("108", DtInteger.u8)));
+    function0.codes.add(new CodeAssignArrayElement(localVar4, new IntegerConstant("4", DtInteger.i32), new IntegerConstant("111", DtInteger.u8)));
+    function0.codes.add(new CodeAssignArrayElement(localVar4, new IntegerConstant("5", DtInteger.i32), new IntegerConstant("44", DtInteger.u8)));
+    function0.codes.add(new CodeAssignArrayElement(localVar4, new IntegerConstant("6", DtInteger.i32), new IntegerConstant("32", DtInteger.u8)));
+    function0.codes.add(new CodeAssignArrayElement(localVar4, new IntegerConstant("7", DtInteger.i32), new IntegerConstant("119", DtInteger.u8)));
+    function0.codes.add(new CodeAssignArrayElement(localVar4, new IntegerConstant("8", DtInteger.i32), new IntegerConstant("111", DtInteger.u8)));
+    function0.codes.add(new CodeAssignArrayElement(localVar4, new IntegerConstant("9", DtInteger.i32), new IntegerConstant("114", DtInteger.u8)));
+    function0.codes.add(new CodeAssignArrayElement(localVar4, new IntegerConstant("10", DtInteger.i32), new IntegerConstant("108", DtInteger.u8)));
+    function0.codes.add(new CodeAssignArrayElement(localVar4, new IntegerConstant("11", DtInteger.i32), new IntegerConstant("100", DtInteger.u8)));
+    function0.codes.add(new CodeAssignArrayElement(localVar4, new IntegerConstant("12", DtInteger.i32), new IntegerConstant("0", DtInteger.u8)));
+
+    function0.codes.add(new CodeCall(eFunction2, new IVariable[] { localVar5, localVar4, localVar4, localVar2 }, new IVariable[] { localVar6 }));
+
+    // function0.codes.add(new CodeAssign(localVar0, new IntegerConstant("69420")));
+    // function0.codes.add(new CodeCall(eFunction0, new IVariable[] { localVar0 }, new IVariable[0]));
     function0.codes.add(new CodeReturn(new IVariable[] { localVar1 }));
 
     // Test

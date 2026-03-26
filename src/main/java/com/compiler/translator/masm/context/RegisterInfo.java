@@ -1,4 +1,4 @@
-package com.compiler.translator.masm;
+package com.compiler.translator.masm.context;
 
 import com.compiler.translator.masm.memory.Register;
 import com.compiler.ir.symbols.IVariable;
@@ -11,6 +11,10 @@ public class RegisterInfo {
 
   public RegisterInfo(Register.Type type) {
     this.type = type;
+  }
+
+  public Register GetRegister(int size) {
+    return Register.Get(type, size);
   }
 
   public Register.Type GetType() {

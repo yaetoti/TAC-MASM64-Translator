@@ -1,6 +1,5 @@
-package com.compiler.translator.masm;
+package com.compiler.translator.masm.context;
 
-import com.compiler.ir.FunctionContext;
 import com.compiler.translator.masm.memory.Register;
 
 import java.util.ArrayList;

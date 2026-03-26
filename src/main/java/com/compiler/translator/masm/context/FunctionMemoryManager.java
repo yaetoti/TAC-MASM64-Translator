@@ -1,4 +1,4 @@
-package com.compiler.translator.masm;
+package com.compiler.translator.masm.context;
 
 import com.compiler.translator.masm.memory.Memory;
 import com.compiler.ir.symbols.IVariable;
