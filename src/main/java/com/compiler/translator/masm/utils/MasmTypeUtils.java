@@ -17,10 +17,10 @@ public final class MasmTypeUtils {
 
   public static Register.Bank GetBank(IDataType type) {
     return switch (type) {
-      case DtInteger dtInteger -> Register.Bank.GPR;
-      case DtPointer dtPointer -> Register.Bank.GPR;
-      case DtArray dtArray -> Register.Bank.GPR;
-      case DtFloat dtFloat -> Register.Bank.VEC;
+      case DtInteger _ -> Register.Bank.GPR;
+      case DtPointer _ -> Register.Bank.GPR;
+      case DtArray _ -> null;
+      case DtFloat _ -> Register.Bank.VEC;
       default -> throw new IllegalStateException("Unexpected value: " + type);
     };
   }

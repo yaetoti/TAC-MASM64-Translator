@@ -185,15 +185,9 @@ public class Main {
     function0.codes.add(new CodeAssign(localVar1, new IntegerConstant("2000", DtInteger.u32)));
     function0.codes.add(new CodeCall(eFunction1, new IVariable[] { localVar0, localVar1 }, new IVariable[0]));
 
-    // Call MessageBoxA
-    function0.codes.add(new CodeAssign(localVar2, new IntegerConstant("0", DtInteger.u32)));
-    function0.codes.add(new CodeAssign(localVar5, new IntegerConstant("0", DtInteger.u64)));
+    // Fill an array with "Hello, world\0"
+    // 72 101 108 108 111 44 32 119 111 114 108 100 0
 
-    // Fill a basePointer with "Hello, world"
-    // 72 101 108 108 111 44 32 119 111 114 108 100
-
-    // TODO We can do it without LEA, using RBP + (arrayOffset + index * size)
-    function0.codes.add(new CodeLoadAddress(localVar4, localVar3));
     function0.codes.add(new CodeAssignArrayElement(localVar3, new IntegerConstant("0", DtInteger.i32), new IntegerConstant("72", DtInteger.u8)));
     function0.codes.add(new CodeAssignArrayElement(localVar3, new IntegerConstant("1", DtInteger.i32), new IntegerConstant("101", DtInteger.u8)));
     function0.codes.add(new CodeAssignArrayElement(localVar3, new IntegerConstant("2", DtInteger.i32), new IntegerConstant("108", DtInteger.u8)));
@@ -208,6 +202,10 @@ public class Main {
     function0.codes.add(new CodeAssignArrayElement(localVar3, new IntegerConstant("11", DtInteger.i32), new IntegerConstant("100", DtInteger.u8)));
     function0.codes.add(new CodeAssignArrayElement(localVar3, new IntegerConstant("12", DtInteger.i32), new IntegerConstant("0", DtInteger.u8)));
 
+    // Call MessageBoxA
+    function0.codes.add(new CodeAssign(localVar2, new IntegerConstant("0", DtInteger.u32)));
+    function0.codes.add(new CodeAssign(localVar5, new IntegerConstant("0", DtInteger.u64)));
+    function0.codes.add(new CodeLoadAddress(localVar4, localVar3));
     function0.codes.add(new CodeCall(eFunction2, new IVariable[] { localVar5, localVar4, localVar4, localVar2 }, new IVariable[] { localVar6 }));
 
     // function0.codes.add(new CodeAssign(localVar0, new IntegerConstant("69420")));

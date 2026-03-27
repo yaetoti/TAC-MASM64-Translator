@@ -1,6 +1,7 @@
 package com.compiler.translator.masm.codegen;
 
 import com.compiler.translator.masm.context.FunctionContext;
+import com.compiler.translator.masm.context.RegisterManager;
 import com.compiler.translator.masm.memory.Memory;
 import com.compiler.translator.masm.memory.Register;
 
@@ -96,7 +97,7 @@ public final class MasmMoveUtils {
   }
 
   public static void MoveToMemory(FunctionContext ctx, Memory dst, Memory src) {
-    var regInfo = ctx.registerManager.GetFreeRegister(Register.Bank.GPR);
+    var regInfo = ctx.registerManager.Acquire(RegisterManager.IS_GPR);
     var reg = Register.Get(regInfo.GetType(), dst.GetSize());
     regInfo.Lock();
     MoveToRegister(ctx, reg, src);

@@ -446,7 +446,7 @@ public final class MasmTranslator {
 
     // Move the remaining parameters to memory
 
-    var tempRegInfo = ctx.registerManager.GetFreeRegister(Register.Bank.GPR);
+    var tempRegInfo = ctx.registerManager.Acquire(RegisterManager.IS_GPR);
     tempRegInfo.Lock();
 
     // TODO per-byte copy for non-register types

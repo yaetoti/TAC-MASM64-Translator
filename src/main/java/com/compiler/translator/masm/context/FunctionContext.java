@@ -44,7 +44,8 @@ public class FunctionContext {
     var location = memoryManager.Get(symbol);
 
     if (location.register == null) {
-      var regInfo = registerManager.GetFreeRegister(MasmTypeUtils.GetBank(symbol.GetDataType()));
+      var bank = MasmTypeUtils.GetBank(symbol.GetDataType());
+      var regInfo = registerManager.Acquire(RegisterManager.IS_EXACT_BANK(bank));
       regInfo.symbol = symbol;
       location.register = MasmTypeUtils.GetRegister(regInfo.type, symbol.GetDataType());
     }

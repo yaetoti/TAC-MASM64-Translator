@@ -23,6 +23,9 @@ public class RegisterManager {
   public static Predicate<RegisterInfo> IS_EXACT_SIZE(int size) {
     return info -> info.GetRegister(size) != null;
   }
+  public static Predicate<RegisterInfo> IS_EXACT_BANK(Register.Bank bank) {
+    return info -> info.GetType().GetBank() == bank;
+  }
 
   private final FunctionContext ctx;
   private final LinkedHashMap<Register.Type, RegisterInfo> registers = new LinkedHashMap<>();
@@ -242,69 +245,5 @@ public class RegisterManager {
     var types = spillable.stream().map(RegisterInfo::GetType).toList();
     registers.addAll(FreeAll(types));
     return registers;
-  }
-
-
-
-  @Deprecated
-  public ArrayList<RegisterInfo> FreeAll(int amount, Register.Bank bank) {
-    var mm = ctx.memoryManager;
-    var candidates = new ArrayList<RegisterInfo>();
-
-    // Find candidates
-    for (var entry : registers.entrySet()) {
-      // Already enough
-      if (candidates.size() >= amount) {
-        break;
-      }
-
-      var info = entry.getValue();
-
-      // Filter by bank
-      if (bank != null && bank != info.GetType().GetBank()) {
-        continue;
-      }
-
-      // If locked or assigned to a symbol that does not have a memory location - continue
-      if (info.IsLocked() || mm.GetMemoryLocation(info.GetSymbol()) == null) {
-        // TODO potential spill
-        continue;
-      }
-
-      candidates.add(info);
-    }
-
-    // Not enough registers
-    if (candidates.size() != amount) {
-      throw new RuntimeException("Not enough free registers to flush");
-    }
-
-    // Flush
-    for (var info : candidates) {
-      ctx.Flush(info.GetSymbol());
-    }
-
-    return candidates;
-  }
-
-  @Deprecated
-  public RegisterInfo GetFreeRegister(Register.Bank bank) {
-    for (var entry : registers.entrySet()) {
-      var info = entry.getValue();
-
-      // Filter by bank
-      if (bank != null && bank != info.GetType().GetBank()) {
-        continue;
-      }
-
-      // Return the first free register
-      if (!info.IsOccupied()) {
-        return info;
-      }
-    }
-
-    // Flush and return the first free register
-    var registers = FreeAll(1, bank);
-    return registers.getFirst();
   }
 }
