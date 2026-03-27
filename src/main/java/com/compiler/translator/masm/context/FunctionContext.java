@@ -126,7 +126,7 @@ public class FunctionContext {
       throw new RuntimeException("Cannot spill register without memory location");
     }
 
-    // TODO depends on register
+    // TODO depends on register bank
     // Spill
     out.EmitF("mov %s, %s", location.memory, location.register);
     location.register = null;

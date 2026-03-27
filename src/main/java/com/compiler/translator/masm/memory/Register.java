@@ -105,35 +105,35 @@ public record Register(Type type, String name, int size) implements Location {
   public static final Register R9W = new Register(Type.R9, "r9w", 2);
   public static final Register R9B = new Register(Type.R9, "r9b", 1);
 
-  public static final Register R10 = new Register(Type.R9, "r10", 8);
-  public static final Register R10D = new Register(Type.R9, "r10d", 4);
-  public static final Register R10W = new Register(Type.R9, "r10w", 2);
-  public static final Register R10B = new Register(Type.R9, "r10b", 1);
+  public static final Register R10 = new Register(Type.R10, "r10", 8);
+  public static final Register R10D = new Register(Type.R10, "r10d", 4);
+  public static final Register R10W = new Register(Type.R10, "r10w", 2);
+  public static final Register R10B = new Register(Type.R10, "r10b", 1);
 
-  public static final Register R11 = new Register(Type.R9, "r11", 8);
-  public static final Register R11D = new Register(Type.R9, "r11d", 4);
-  public static final Register R11W = new Register(Type.R9, "r11w", 2);
-  public static final Register R11B = new Register(Type.R9, "r11b", 1);
+  public static final Register R11 = new Register(Type.R11, "r11", 8);
+  public static final Register R11D = new Register(Type.R11, "r11d", 4);
+  public static final Register R11W = new Register(Type.R11, "r11w", 2);
+  public static final Register R11B = new Register(Type.R11, "r11b", 1);
 
-  public static final Register R12 = new Register(Type.R9, "r12", 8);
-  public static final Register R12D = new Register(Type.R9, "r12d", 4);
-  public static final Register R12W = new Register(Type.R9, "r12w", 2);
-  public static final Register R12B = new Register(Type.R9, "r12b", 1);
+  public static final Register R12 = new Register(Type.R12, "r12", 8);
+  public static final Register R12D = new Register(Type.R12, "r12d", 4);
+  public static final Register R12W = new Register(Type.R12, "r12w", 2);
+  public static final Register R12B = new Register(Type.R12, "r12b", 1);
 
-  public static final Register R13 = new Register(Type.R9, "r13", 8);
-  public static final Register R13D = new Register(Type.R9, "r13d", 4);
-  public static final Register R13W = new Register(Type.R9, "r13w", 2);
-  public static final Register R13B = new Register(Type.R9, "r13b", 1);
+  public static final Register R13 = new Register(Type.R13, "r13", 8);
+  public static final Register R13D = new Register(Type.R13, "r13d", 4);
+  public static final Register R13W = new Register(Type.R13, "r13w", 2);
+  public static final Register R13B = new Register(Type.R13, "r13b", 1);
 
-  public static final Register R14 = new Register(Type.R9, "r14", 8);
-  public static final Register R14D = new Register(Type.R9, "r14d", 4);
-  public static final Register R14W = new Register(Type.R9, "r14w", 2);
-  public static final Register R14B = new Register(Type.R9, "r14b", 1);
+  public static final Register R14 = new Register(Type.R14, "r14", 8);
+  public static final Register R14D = new Register(Type.R14, "r14d", 4);
+  public static final Register R14W = new Register(Type.R14, "r14w", 2);
+  public static final Register R14B = new Register(Type.R14, "r14b", 1);
 
-  public static final Register R15 = new Register(Type.R9, "r15", 8);
-  public static final Register R15D = new Register(Type.R9, "r15d", 4);
-  public static final Register R15W = new Register(Type.R9, "r15w", 2);
-  public static final Register R15B = new Register(Type.R9, "r15b", 1);
+  public static final Register R15 = new Register(Type.R15, "r15", 8);
+  public static final Register R15D = new Register(Type.R15, "r15d", 4);
+  public static final Register R15W = new Register(Type.R15, "r15w", 2);
+  public static final Register R15B = new Register(Type.R15, "r15b", 1);
 
   // VEC
   public static final Register XMM0 = new Register(Type.VEC0, "xmm0", 16);
@@ -240,19 +240,13 @@ public record Register(Type type, String name, int size) implements Location {
   }
 
   private static Register GetGprOfSize(int size, Register rQword, Register rDword, Register rWord, Register rByte) {
-    Register value = switch (size) {
+    return switch (size) {
       case 8 -> rQword;
       case 4 -> rDword;
       case 2 -> rWord;
       case 1 -> rByte;
-      default -> throw new IllegalStateException("Unexpected value: " + size);
+      default -> null;
     };
-
-    if (value == null) {
-      throw new IllegalStateException("Register size not supported");
-    }
-
-    return value;
   }
 
   private static Register GetVecOfSize(int size, Register v128, Register v256, Register v512) {
@@ -260,7 +254,7 @@ public record Register(Type type, String name, int size) implements Location {
       case 16 -> v128;
       case 32 -> v256;
       case 64 -> v512;
-      default -> throw new IllegalStateException("Unexpected vector register size: " + size);
+      default -> null;
     };
   }
 

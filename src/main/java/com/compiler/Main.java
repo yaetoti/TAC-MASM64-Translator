@@ -191,22 +191,22 @@ public class Main {
 
     // Fill a basePointer with "Hello, world"
     // 72 101 108 108 111 44 32 119 111 114 108 100
-    function0.codes.add(new CodeLoadAddress(localVar4, localVar3));
 
     // TODO We can do it without LEA, using RBP + (arrayOffset + index * size)
-    function0.codes.add(new CodeAssignArrayElement(localVar4, new IntegerConstant("0", DtInteger.i32), new IntegerConstant("72", DtInteger.u8)));
-    function0.codes.add(new CodeAssignArrayElement(localVar4, new IntegerConstant("1", DtInteger.i32), new IntegerConstant("101", DtInteger.u8)));
-    function0.codes.add(new CodeAssignArrayElement(localVar4, new IntegerConstant("2", DtInteger.i32), new IntegerConstant("108", DtInteger.u8)));
-    function0.codes.add(new CodeAssignArrayElement(localVar4, new IntegerConstant("3", DtInteger.i32), new IntegerConstant("108", DtInteger.u8)));
-    function0.codes.add(new CodeAssignArrayElement(localVar4, new IntegerConstant("4", DtInteger.i32), new IntegerConstant("111", DtInteger.u8)));
-    function0.codes.add(new CodeAssignArrayElement(localVar4, new IntegerConstant("5", DtInteger.i32), new IntegerConstant("44", DtInteger.u8)));
-    function0.codes.add(new CodeAssignArrayElement(localVar4, new IntegerConstant("6", DtInteger.i32), new IntegerConstant("32", DtInteger.u8)));
-    function0.codes.add(new CodeAssignArrayElement(localVar4, new IntegerConstant("7", DtInteger.i32), new IntegerConstant("119", DtInteger.u8)));
-    function0.codes.add(new CodeAssignArrayElement(localVar4, new IntegerConstant("8", DtInteger.i32), new IntegerConstant("111", DtInteger.u8)));
-    function0.codes.add(new CodeAssignArrayElement(localVar4, new IntegerConstant("9", DtInteger.i32), new IntegerConstant("114", DtInteger.u8)));
-    function0.codes.add(new CodeAssignArrayElement(localVar4, new IntegerConstant("10", DtInteger.i32), new IntegerConstant("108", DtInteger.u8)));
-    function0.codes.add(new CodeAssignArrayElement(localVar4, new IntegerConstant("11", DtInteger.i32), new IntegerConstant("100", DtInteger.u8)));
-    function0.codes.add(new CodeAssignArrayElement(localVar4, new IntegerConstant("12", DtInteger.i32), new IntegerConstant("0", DtInteger.u8)));
+    function0.codes.add(new CodeLoadAddress(localVar4, localVar3));
+    function0.codes.add(new CodeAssignArrayElement(localVar3, new IntegerConstant("0", DtInteger.i32), new IntegerConstant("72", DtInteger.u8)));
+    function0.codes.add(new CodeAssignArrayElement(localVar3, new IntegerConstant("1", DtInteger.i32), new IntegerConstant("101", DtInteger.u8)));
+    function0.codes.add(new CodeAssignArrayElement(localVar3, new IntegerConstant("2", DtInteger.i32), new IntegerConstant("108", DtInteger.u8)));
+    function0.codes.add(new CodeAssignArrayElement(localVar3, new IntegerConstant("3", DtInteger.i32), new IntegerConstant("108", DtInteger.u8)));
+    function0.codes.add(new CodeAssignArrayElement(localVar3, new IntegerConstant("4", DtInteger.i32), new IntegerConstant("111", DtInteger.u8)));
+    function0.codes.add(new CodeAssignArrayElement(localVar3, new IntegerConstant("5", DtInteger.i32), new IntegerConstant("44", DtInteger.u8)));
+    function0.codes.add(new CodeAssignArrayElement(localVar3, new IntegerConstant("6", DtInteger.i32), new IntegerConstant("32", DtInteger.u8)));
+    function0.codes.add(new CodeAssignArrayElement(localVar3, new IntegerConstant("7", DtInteger.i32), new IntegerConstant("119", DtInteger.u8)));
+    function0.codes.add(new CodeAssignArrayElement(localVar3, new IntegerConstant("8", DtInteger.i32), new IntegerConstant("111", DtInteger.u8)));
+    function0.codes.add(new CodeAssignArrayElement(localVar3, new IntegerConstant("9", DtInteger.i32), new IntegerConstant("114", DtInteger.u8)));
+    function0.codes.add(new CodeAssignArrayElement(localVar3, new IntegerConstant("10", DtInteger.i32), new IntegerConstant("108", DtInteger.u8)));
+    function0.codes.add(new CodeAssignArrayElement(localVar3, new IntegerConstant("11", DtInteger.i32), new IntegerConstant("100", DtInteger.u8)));
+    function0.codes.add(new CodeAssignArrayElement(localVar3, new IntegerConstant("12", DtInteger.i32), new IntegerConstant("0", DtInteger.u8)));
 
     function0.codes.add(new CodeCall(eFunction2, new IVariable[] { localVar5, localVar4, localVar4, localVar2 }, new IVariable[] { localVar6 }));
 

@@ -1,7 +1,6 @@
 package com.compiler.translator.masm;
 
 import com.compiler.ir.codes.*;
-import com.compiler.ir.types.DtArray;
 import com.compiler.translator.masm.codegen.IntegerMoveHandlers;
 import com.compiler.translator.masm.codegen.MasmMoveUtils;
 import com.compiler.ir.symbols.*;
@@ -343,9 +342,7 @@ public final class MasmTranslator {
     // mov [rbx + rcx * 8], [rcx]
     // mov [rbx + rcx * 8], 12
 
-    var baseReg = ctx.EnsureInRegister(code.basePointer());
-    var baseRegInfo = ctx.registerManager.Get(baseReg.type());
-    baseRegInfo.Lock();
+    var arrayMemory = ctx.memoryManager.GetMemoryLocation(code.array());
 
     if (!(code.index() instanceof IntegerConstant index)) {
       throw new IllegalStateException("Not implemented");
@@ -359,8 +356,11 @@ public final class MasmTranslator {
           }
           case IntegerConstant integerConstant -> {
             var elementSize = integerConstant.type().GetSize();
+            var regInfo = ctx.registerManager.Acquire(RegisterManager.IS_GPR.and(RegisterManager.IS_EXACT_SIZE(elementSize)));
+            var reg = regInfo.GetRegister(elementSize);
 
-            ctx.out.EmitF("mov %s, %s", new OffsetMemory(elementSize, baseReg, null, 0, elementSize * Integer.parseInt(index.value())), integerConstant.value());
+            ctx.out.EmitF("mov %s, %s", reg, integerConstant.value());
+            ctx.out.EmitF("mov %s, %s", arrayMemory.Offset(elementSize * Integer.parseInt(index.value())), reg);
           }
           case PointerConstant pointerConstant -> {
             throw new IllegalStateException("Not implemented");
@@ -371,8 +371,6 @@ public final class MasmTranslator {
         throw new IllegalStateException("Not implemented");
       }
     }
-
-    baseRegInfo.Unlock();
   }
 
   private void TranslateCodeReturn(CodeReturn code, FunctionContext ctx) {
@@ -385,7 +383,7 @@ public final class MasmTranslator {
   private void TranslateCodeReturnMsAbi(CodeReturn code, FunctionContext ctx) {
     // Free all registers
     out.EmitComment("-- Flush all registers --");
-    ctx.registerManager.FlushRegisters();
+    ctx.registerManager.FreeAll();
 
     // Move the result to rax
     if (code.returnValues().length != 0) {
@@ -423,7 +421,7 @@ public final class MasmTranslator {
 
   private void TranslateCodeCallMsAbi(CodeCall code, FunctionContext ctx) {
     // Save volatile registers
-    ctx.registerManager.FlushRegisters();
+    ctx.registerManager.FreeAll();
 
     // Allocate space for (padding + params + shadow space)
     int allocSize = Math.max(4, code.params().length) * 8;

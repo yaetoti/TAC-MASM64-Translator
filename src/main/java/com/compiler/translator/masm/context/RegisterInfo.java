@@ -30,12 +30,18 @@ public class RegisterInfo {
   }
 
   public void Lock() {
-    assert !isLocked : "Register was already locked";
+    if (isLocked) {
+      throw new RuntimeException("Register is already locked");
+    }
+
     isLocked = true;
   }
 
   public void Unlock() {
-    assert isLocked : "Register was already unlocked";
+    if (!isLocked) {
+      throw new RuntimeException("Register is already unlocked");
+    }
+
     isLocked = false;
   }
 
@@ -45,5 +51,13 @@ public class RegisterInfo {
 
   public boolean IsOccupied() {
     return isLocked || symbol != null;
+  }
+
+  public boolean IsFree() {
+    return !isLocked && symbol == null;
+  }
+
+  public boolean IsSpillable() {
+    return !isLocked && symbol != null;
   }
 }

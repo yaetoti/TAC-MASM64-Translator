@@ -25,4 +25,9 @@ public record LabelMemory(int size, String label, int offset) implements Memory 
   public int GetSize() {
     return size;
   }
+
+  @Override
+  public LabelMemory Offset(int offset) {
+    return new LabelMemory(size, label, this.offset + offset);
+  }
 }

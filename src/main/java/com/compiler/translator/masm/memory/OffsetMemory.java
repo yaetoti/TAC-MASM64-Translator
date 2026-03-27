@@ -73,4 +73,9 @@ public record OffsetMemory(int size, Register base, Register index, int scale, i
   public int GetSize() {
     return size;
   }
+
+  @Override
+  public OffsetMemory Offset(int offset) {
+    return new OffsetMemory(size, base, index, scale, this.offset + offset);
+  }
 }
